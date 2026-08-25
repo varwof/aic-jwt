@@ -13,9 +13,10 @@ Token Status List).
 - TypeScript/WebCrypto implementation: `ts/` (pure WebCrypto, runs in
   browsers; directly testable in Node).
 
-## Draft
+## Drafts
 
-- `draft-wei-aic-jwt-00.md` (copy in this repository)
+- AIC-JWT: [draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md) (also `.xml` / `.txt` / `.html`)
+- AIC X.509 companion: [draft-wei-aic-identity-cert-00.md](docs/draft-wei-aic-identity-cert-00.md) (also `.xml` / `.txt` / `.html`)
 
 ## Run
 

@@ -10,7 +10,8 @@ Token Status List）验证端到端行为。
 
 ## 草案
 
-- `draft-wei-aic-jwt-00.md`（本仓库内副本）
+- AIC-JWT：[draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md)（另有 `.xml` / `.txt` / `.html`）
+- AIC X.509 配套：[draft-wei-aic-identity-cert-00.md](docs/draft-wei-aic-identity-cert-00.md)（另有 `.xml` / `.txt` / `.html`）
 
 ## 运行
 
