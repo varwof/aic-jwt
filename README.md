@@ -1,41 +1,49 @@
 # AIC-JWT
 
-AIC-JWT（`draft-wei-aic-jwt-00`）的参考实现与验证程序：把草案的规范要求翻译成
-可执行的测试，并用真实 OAuth 场景（RFC 9068 / 7523 / 8693 / 9449、OBO、
-Token Status List）验证端到端行为。
+Reference implementation and conformance suite for AIC-JWT
+(`draft-wei-aic-jwt-00`): the JSON Web Token profile of the AI Agent
+Identity Certificate (AIC). It translates the specification's
+requirements into executable tests and verifies end-to-end behavior
+against real OAuth scenarios (RFC 9068 / 7523 / 8693 / 9449, OBO,
+Token Status List).
 
-- Go 参考实现：`github.com/varwof/aic-jwt`（本仓库），核心逻辑在
-  `github.com/varwof/types/aicjwt`（单一实现源）。
-- TypeScript/WebCrypto 实现：`ts/`（纯 WebCrypto，浏览器可运行，Node 可直接测试）。
+- Go reference implementation: this repository (wrapper), with the
+  core logic in `github.com/varwof/types/aicjwt` (single source of
+  truth).
+- TypeScript/WebCrypto implementation: `ts/` (pure WebCrypto, runs in
+  browsers; directly testable in Node).
 
-## 草案
+## Draft
 
-- `draft-wei-aic-jwt-00.md`（本仓库内副本）
+- `draft-wei-aic-jwt-00.md` (copy in this repository)
 
-## 运行
+## Run
 
 ```bash
-go test ./... -v      # Go 全部测试（含 OAuth 场景）
-go test -cover ./...  # 覆盖率
-node --test ts/aicjwt.test.ts   # TS/WebCrypto 15 用例（Node 22+）
+go test ./... -v                # all Go tests (incl. OAuth scenarios)
+go test -cover ./...            # coverage
+node --test ts/aicjwt.test.ts   # TS/WebCrypto, 15 cases (Node 22+)
 ```
 
-## 目录结构
+## Layout
 
-| 文件 | 作用 |
-|------|------|
-| `reexport.go` | 包装层：re-export `types/aicjwt` 的 claims/JWS/匹配/约束/密钥绑定/11 步验证 API |
-| `oauth.go` | OAuth 协议层：AS（assertion/code/token-exchange）、RS、DPoP、状态列表 |
-| `oauth_scenarios_test.go` | 9 个 OAuth 实战场景 |
-| `helpers_test.go` | 场景测试辅助（签发/构造令牌） |
-| `ts/` | 浏览器 WebCrypto 参考实现（独立于 Go 侧） |
-| `draft-wei-aic-jwt-00.md` | 草案副本 |
+| File | Purpose |
+|------|---------|
+| `reexport.go` | Wrapper re-exporting the `types/aicjwt` API: claims, JWS, capability matching, constraints, key binding, 11-step validation |
+| `oauth.go` | OAuth protocol layer: AS (assertion / code / token-exchange), RS, DPoP, Token Status List |
+| `oauth_scenarios_test.go` | 9 OAuth end-to-end scenarios |
+| `helpers_test.go` | Scenario test helpers (token issuance / construction) |
+| `ts/` | Browser WebCrypto reference implementation (independent of Go) |
+| `draft-wei-aic-jwt-00.md` | Copy of the draft |
 
-## 架构
+## Architecture
 
-核心逻辑（claims 模型、JWS、能力匹配、约束求值、密钥绑定、11 步验证管线）
-统一位于 **`github.com/varwof/types/aicjwt`**；本仓库保留 OAuth 协议层模拟、
-场景测试与 TS 浏览器实现。未来功能将逐步并入 varwof 主仓库。
+The core logic (claims model, JWS, capability matching, constraint
+evaluation, key binding, 11-step validation pipeline) lives in
+**`github.com/varwof/types/aicjwt`**. This repository keeps the OAuth
+protocol-layer simulation, the scenario tests, and the TS browser
+implementation. Functionality will progressively merge into the main
+varwof repositories.
 
 ## License
 
