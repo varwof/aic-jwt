@@ -6,6 +6,7 @@ import {
   TYP_DA, TYP_OUTER, MODE_AUTHORIZED, MODE_REPRESENTATIVE,
   CONSTRAINT_SCHEME, ALLOWED_MODE_REPRESENTATIVE,
   b64uEncode, b64uDecode, signCompact, verifyCompact, parseCompact,
+  signBytes, MAX_TOKEN_SIZE,
   keyHashOf, jwkThumbprint, spkiHash, matchPattern, matchCapabilities,
   paramsWithinGrant, evaluateConstraints, validate, validateDA,
   buildDPoP, verifyDPoP, stableStringify,
@@ -475,4 +476,67 @@ test("TS: DA standalone validation", async () => {
   const { token: daTok } = await buildDA(env, MODE_AUTHORIZED, CAPS);
   const parsed = await validateDA(daTok, { now: env.now, principalJWKS: { "principal-1": env.principal.publicKey }, nonceStore: new MemNonceStore() });
   assert.equal(parsed.agent_id, "agent:db-analyst-01");
+});
+
+function utf8e(str: string): Uint8Array {
+  return new TextEncoder().encode(str);
+}
+
+function b64uDecodeStr(str: string): string {
+  return new TextDecoder().decode(b64uDecode(str));
+}
+
+test("TS: duplicate JSON keys rejected (header and payload)", async () => {
+  const env = await newEnv();
+  const opts = defaultOpts(env);
+  const { token: daTok, da } = await buildDA(env, MODE_AUTHORIZED, CAPS);
+  const base = await buildOuter(env, daTok, da, MODE_AUTHORIZED, CAPS);
+  const parts = base.split(".");
+  const payloadStr = b64uDecodeStr(parts[1]);
+
+  // header with duplicate alg (RFC 8725 hardening)
+  const dupHeader = '{"alg":"none","alg":"ES256","typ":"aic+jwt","kid":"issuer-1"}';
+  const input = b64uEncode(utf8e(dupHeader)) + "." + b64uEncode(utf8e(payloadStr));
+  const sig = await signBytes("ES256", utf8e(input), env.issuer.privateKey);
+  await assert.rejects(
+    () => validate(input + "." + b64uEncode(sig), opts),
+    /duplicate JSON member names/,
+  );
+
+  // payload with duplicate sub
+  const idx = payloadStr.indexOf('"sub":');
+  assert.ok(idx >= 0);
+  const dupPayload = payloadStr.slice(0, idx) + '"sub":"agent:evil",' + payloadStr.slice(idx);
+  const input2 = b64uEncode(utf8e(parts[0])) + "." + b64uEncode(utf8e(dupPayload));
+  const sig2 = await signBytes("ES256", utf8e(input2), env.issuer.privateKey);
+  await assert.rejects(
+    () => validate(input2 + "." + b64uEncode(sig2), opts),
+    /duplicate JSON member names/,
+  );
+});
+
+test("TS: oversized token rejected", async () => {
+  const env = await newEnv();
+  const opts = defaultOpts(env);
+  const { token: daTok, da } = await buildDA(env, MODE_AUTHORIZED, CAPS);
+  const base = await buildOuter(env, daTok, da, MODE_AUTHORIZED, CAPS);
+  const parts = base.split(".");
+  const payload = JSON.parse(b64uDecodeStr(parts[1])) as Record<string, unknown>;
+  payload.padding = "x".repeat(MAX_TOKEN_SIZE + 1024);
+  const big = JSON.stringify(payload);
+  const input = b64uEncode(utf8e(parts[0])) + "." + b64uEncode(utf8e(big));
+  const sig = await signBytes("ES256", utf8e(input), env.issuer.privateKey);
+  const bigTok = input + "." + b64uEncode(sig);
+  assert.ok(bigTok.length > MAX_TOKEN_SIZE);
+  await assert.rejects(() => validate(bigTok, opts), /exceeds max/);
+});
+
+test("TS: oversized capability params rejected", async () => {
+  const env = await newEnv();
+  const opts = defaultOpts(env);
+  const bigParams = { note: "x".repeat(600) };
+  const badCaps = [{ scheme: "database", id: "query:SELECT", params: bigParams }] as Capability[];
+  const { token: daTok, da } = await buildDA(env, MODE_AUTHORIZED, badCaps);
+  const tok = await buildOuter(env, daTok, da, MODE_AUTHORIZED, badCaps);
+  await assert.rejects(() => validate(tok, opts), /params exceed/);
 });

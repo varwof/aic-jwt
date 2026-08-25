@@ -146,6 +146,8 @@ export const MODE_REPRESENTATIVE = "representative";
 export const CONSTRAINT_SCHEME = "varwof/constraint-v1";
 export const MAX_LIFETIME = 86400;
 export const ALLOWED_MODE_REPRESENTATIVE = "representative_allowed";
+export const MAX_TOKEN_SIZE = 64 * 1024; // draft Section 13.7 hard limit
+export const MAX_PARAMS_SIZE = 512; // draft Section 13.7 params limit
 
 export const ALLOWED_ALGS = new Set([
   "ES256", "ES384", "ES512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "EdDSA",
@@ -242,20 +244,94 @@ export async function verifyBytes(alg: string, input: Uint8Array, sig: Uint8Arra
   if (!ok) throw new Error("signature verification failed");
 }
 
+// hasDuplicateJSONKeys reports whether the JSON text contains an
+// object with duplicate member names.  Duplicate members are ambiguous
+// across implementations (RFC 8725) and MUST NOT be accepted.
+export function hasDuplicateJSONKeys(text: string): boolean {
+  let i = 0;
+  const skipWs = () => {
+    while (i < text.length && (text[i] === " " || text[i] === "\t" || text[i] === "\n" || text[i] === "\r")) i++;
+  };
+  const parseString = (): boolean => {
+    i++; // opening quote
+    while (i < text.length) {
+      const c = text[i];
+      if (c === "\\") { i += 2; continue; }
+      if (c === '"') { i++; return true; }
+      i++;
+    }
+    return false;
+  };
+  const walk = (): boolean => {
+    skipWs();
+    const c = text[i];
+    if (c === "{") {
+      i++;
+      const seen = new Set<string>();
+      skipWs();
+      if (text[i] === "}") { i++; return false; }
+      for (;;) {
+        skipWs();
+        if (text[i] !== '"') return false;
+        const start = i;
+        if (!parseString()) return false;
+        const key = text.slice(start + 1, i - 1);
+        if (seen.has(key)) return true;
+        seen.add(key);
+        skipWs();
+        if (text[i] !== ":") return false;
+        i++;
+        if (walk()) return true;
+        skipWs();
+        if (text[i] === ",") { i++; continue; }
+        if (text[i] === "}") { i++; return false; }
+        return false;
+      }
+    }
+    if (c === "[") {
+      i++;
+      skipWs();
+      if (text[i] === "]") { i++; return false; }
+      for (;;) {
+        if (walk()) return true;
+        skipWs();
+        if (text[i] === ",") { i++; continue; }
+        if (text[i] === "]") { i++; return false; }
+        return false;
+      }
+    }
+    if (c === '"') { parseString(); return false; }
+    while (i < text.length && text[i] !== "," && text[i] !== "}" && text[i] !== "]" && text[i] !== " " && text[i] !== "\t" && text[i] !== "\n" && text[i] !== "\r") i++;
+    return false;
+  };
+  try {
+    return walk();
+  } catch {
+    return true; // malformed input: reject rather than accept
+  }
+}
+
 export function parseCompact(token: string): { header: Header; payload: unknown; parts: string[] } {
+  if (token.length > MAX_TOKEN_SIZE) {
+    throw new Error(`token size ${token.length} exceeds max ${MAX_TOKEN_SIZE}`);
+  }
   const parts = token.split(".");
   if (parts.length !== 3) throw new Error("malformed JWS compact serialization");
   const hb = b64uDecode(parts[0]);
   const pb = b64uDecode(parts[1]);
+  const hs = td.decode(hb);
+  const ps = td.decode(pb);
+  if (hasDuplicateJSONKeys(hs)) throw new Error("duplicate JSON member names in JWS header");
+  if (hasDuplicateJSONKeys(ps)) throw new Error("duplicate JSON member names in JWS payload");
   let header: Header;
   try {
-    header = JSON.parse(td.decode(hb)) as Header;
+    header = JSON.parse(hs) as Header;
   } catch {
     throw new Error("bad JWS header");
   }
   let payload: unknown;
   try {
-    payload = JSON.parse(td.decode(pb));
+    payload = JSON.parse(ps);
   } catch {
     throw new Error("bad JWS payload");
   }
@@ -665,7 +741,13 @@ function checkOuterRequired(o: OuterClaims): void {
   if (!o.aic.capabilities || o.aic.capabilities.length < 1 || o.aic.capabilities.length > 256) {
     throw new Error("aic.capabilities must contain 1..256 entries");
   }
+  for (const c of o.aic.capabilities) {
+    if (c.params != null && JSON.stringify(c.params).length > MAX_PARAMS_SIZE) throw new Error(`aic.capabilities params exceed ${MAX_PARAMS_SIZE} bytes`);
+  }
   if (o.aic.constraints && o.aic.constraints.length > 32) throw new Error("aic.constraints must not exceed 32 entries");
+  for (const c of o.aic.constraints ?? []) {
+    if (c.params != null && JSON.stringify(c.params).length > MAX_PARAMS_SIZE) throw new Error(`aic.constraints params exceed ${MAX_PARAMS_SIZE} bytes`);
+  }
 }
 
 function checkDARequired(d: DAClaims): void {
@@ -674,8 +756,14 @@ function checkDARequired(d: DAClaims): void {
   if (!d.principal || !d.principal.realm || !d.principal.id || !d.principal.key_hash) throw new Error("DA principal required");
   if (!d.reason || !d.reason.code || !d.reason.desc) throw new Error("DA reason.code and reason.desc required");
   if (!d.capabilities || d.capabilities.length < 1 || d.capabilities.length > 256) throw new Error("DA capabilities invalid");
+  for (const c of d.capabilities) {
+    if (c.params != null && JSON.stringify(c.params).length > MAX_PARAMS_SIZE) throw new Error(`DA capabilities params exceed ${MAX_PARAMS_SIZE} bytes`);
+  }
   if (d.delegation_mode !== MODE_AUTHORIZED && d.delegation_mode !== MODE_REPRESENTATIVE) throw new Error("DA delegation_mode invalid");
   if (d.constraints && d.constraints.length > 32) throw new Error("DA constraints must not exceed 32 entries");
+  for (const c of d.constraints ?? []) {
+    if (c.params != null && JSON.stringify(c.params).length > MAX_PARAMS_SIZE) throw new Error(`DA constraints params exceed ${MAX_PARAMS_SIZE} bytes`);
+  }
   if (!Number.isInteger(d.requested_lifetime) || d.requested_lifetime < 1 || d.requested_lifetime > MAX_LIFETIME) {
     throw new Error(`DA requested_lifetime must be in 1..${MAX_LIFETIME}`);
   }
@@ -731,6 +819,12 @@ function checkPA(o: OuterClaims, opts: VerifyOptions): void {
     if (!capabilitySubset(c, pa.grants)) {
       throw new Error(`capability ${c.scheme}:${c.id} not within P_grants`);
     }
+  }
+  for (const g of pa.grants) {
+    if (g.params != null && JSON.stringify(g.params).length > MAX_PARAMS_SIZE) throw new Error(`PA grants params exceed ${MAX_PARAMS_SIZE} bytes`);
+  }
+  for (const c of pa.constraints ?? []) {
+    if (c.params != null && JSON.stringify(c.params).length > MAX_PARAMS_SIZE) throw new Error(`PA constraints params exceed ${MAX_PARAMS_SIZE} bytes`);
   }
 }
 
