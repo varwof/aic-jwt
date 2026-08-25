@@ -1361,15 +1361,19 @@ this specification:
   claims model, the 11-step validation pipeline, capability matching,
   constraints, key binding, and the OAuth scenarios (RFC 9068, RFC
   7523, RFC 8693, RFC 9449, OBO-style flows, and Token Status Lists).
-  Test suite: 25 cases, all passing.
+  Test suites in types/aicjwt and the aic-jwt repository pass
+  (go test ./...).
 * A TypeScript/WebCrypto reference implementation implements the same
   pipeline for browser-compatible runtimes, including EdDSA and
   RSA-PSS coverage with feature detection.  Test suite: 15 cases, all
-  passing.
+  passing (node --test ts/aicjwt.test.ts).
 
-Both implementations are located in the aic-jwt repository; public
-release is planned.  Findings verified by these implementations are
-incorporated in Sections 6.2, 9.4, 10.5, 10.6, 11, and 13.8.
+The Go core is maintained in github.com/varwof/types (package
+types/aicjwt); the wrapper, OAuth protocol-layer simulation, and the
+TypeScript/WebCrypto implementation are in
+https://github.com/varwof/aic-jwt.  Findings verified by these
+implementations are incorporated in Sections 6.2, 9.4, 10.5, 10.6,
+11, and 13.8.
 
 ---
 
