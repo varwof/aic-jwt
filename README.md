@@ -12,11 +12,14 @@ Token Status List).
   truth).
 - TypeScript/WebCrypto implementation: `ts/` (pure WebCrypto, runs in
   browsers; directly testable in Node).
+- Serverless browser demo: [`demo/`](demo/README.md) — human JWT
+  certificate → agent certificate → verification, all in one
+  self-contained HTML page (no backend needed).
 
 ## Drafts
 
-- AIC-JWT: [draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md) (also `.xml` / `.txt` / `.html`)
-- AIC X.509 companion: [draft-wei-aic-identity-cert-00.md](docs/draft-wei-aic-identity-cert-00.md) (also `.xml` / `.txt` / `.html`)
+- AIC-JWT: [draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md) (also `.xml` / `.txt` / `.html`) — read online: [Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-jwt/)
+- AIC X.509 companion: [draft-wei-aic-identity-cert-00.md](docs/draft-wei-aic-identity-cert-00.md) (also `.xml` / `.txt` / `.html`) — read online: [Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
 
 ## Run
 
@@ -24,6 +27,9 @@ Token Status List).
 go test ./... -v                # all Go tests (incl. OAuth scenarios)
 go test -cover ./...            # coverage
 node --test ts/aicjwt.test.ts   # TS/WebCrypto, 15 cases (Node 22+)
+npm test                        # demo library tests (Node 22+)
+npm run build                   # build self-contained demo/dist/index.html
+open demo/dist/index.html       # serverless browser demo, English default (index.zh.html = Chinese)
 ```
 
 ## Layout
@@ -35,7 +41,28 @@ node --test ts/aicjwt.test.ts   # TS/WebCrypto, 15 cases (Node 22+)
 | `oauth_scenarios_test.go` | 9 OAuth end-to-end scenarios |
 | `helpers_test.go` | Scenario test helpers (token issuance / construction) |
 | `ts/` | Browser WebCrypto reference implementation (independent of Go) |
+| `demo/` | Serverless browser demo (TS library + UI, builds to a self-contained HTML) |
 | `draft-wei-aic-jwt-00.md` | Copy of the draft |
+
+## Demo
+
+The [`demo/`](demo/README.md) page walks through the full AIC-JWT
+lifecycle entirely in the browser using WebCrypto:
+
+1. A human generates a key pair and self-signs a PrincipalAuthorization
+   (PA) JWT — the "human JWT certificate" with identity binding and
+   P_grants.
+2. An agent builds a delegation request (with a 32-byte nonce); the
+   human reviews and signs the DA JWT.
+3. A demo CA validates the DA and issues the outer AIC-JWT — the
+   "agent certificate" — binding the agent's public key via `cnf.jkt`.
+4. A gateway runs the 11-step validation pipeline (plus identity
+   binding checks) and renders a per-step audit report, with canned
+   scenarios for overreach, expiry, tampering, identity spoofing, and
+   constraint violations.
+
+Open `demo/dist/index.html` directly in Chrome, or use `?auto` to run
+the whole flow automatically.
 
 ## Architecture
 
