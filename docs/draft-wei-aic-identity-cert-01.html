@@ -41,24 +41,23 @@ are discussed.
 <meta content="PKI" name="keyword">
 <meta content="Accountability" name="keyword">
 <meta content="Delegation" name="keyword">
-<meta content="draft-wei-aic-identity-cert-00" name="ietf.draft">
+<meta content="draft-wei-aic-identity-cert-01" name="ietf.draft">
 <!-- Generator version information:
   xml2rfc 3.34.0
-    Python 3.13.5
+    Python 3.12.3
     ConfigArgParse 1.7.5
     google-i18n-address 3.1.1
     intervaltree 3.2.1
-    Jinja2 3.1.6
-    lxml 5.4.0
+    Jinja2 3.1.2
+    lxml 6.1.2
     natsort 8.4.0
-    platformdirs 4.3.7
+    platformdirs 4.2.0
     pycountry 26.2.16
-    PyYAML 6.0.2
+    PyYAML 6.0.1
     requests 2.34.2
-    wcwidth 0.2.13
-    weasyprint 69.0
+    wcwidth 0.8.2
 -->
-<link href="draft-00.xml" rel="alternate" type="application/rfc+xml">
+<link href="draft-wei-aic-identity-cert-01.xml" rel="alternate" type="application/rfc+xml">
 <link href="#copyright" rel="license">
 <style type="text/css">/*
 
@@ -1251,7 +1250,7 @@ li > p:last-of-type:only-child {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Wei</td>
-<td class="center">Expires 20 February 2027</td>
+<td class="center">Expires 3 March 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1261,15 +1260,15 @@ li > p:last-of-type:only-child {
 <dt class="label-workgroup">Workgroup:</dt>
 <dd class="workgroup">Network Working Group</dd>
 <dt class="label-internet-draft">Internet-Draft:</dt>
-<dd class="internet-draft">draft-wei-aic-identity-cert-00</dd>
+<dd class="internet-draft">draft-wei-aic-identity-cert-01</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-08-19" class="published">19 August 2026</time>
+<time datetime="2026-08-30" class="published">30 August 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Experimental</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-02-20">20 February 2027</time></dd>
+<dd class="expires"><time datetime="2027-03-03">3 March 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1327,7 +1326,7 @@ are discussed.<a href="#section-abstract-3" class="pilcrow">¶</a></p>
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 20 February 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 3 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -2988,7 +2987,8 @@ requestedLifetime is at most 86400 seconds (1 day).<a href="#section-5.1-2.4.2.4
                 <p id="section-5.1-2.4.2.5.1">Verify that <code>signatureAlgorithm</code> is one of the permitted
 algorithms: ECDSA with SHA-256 (MUST), ECDSA with SHA-384 or
 SHA-512 (MAY), RSA with SHA-256 (MUST), RSA with SHA-384 or
-SHA-512 (MAY), RSA-PSS with SHA-256 (MAY), or Ed25519 (MAY).
+SHA-512 (MAY), RSA-PSS with SHA-256, SHA-384, or SHA-512 (MAY),
+or Ed25519 (MAY).
 Any other algorithm MUST be rejected.<a href="#section-5.1-2.4.2.5.1" class="pilcrow">¶</a></p>
 </li>
             </ul>
@@ -3558,18 +3558,86 @@ by the capability schemes themselves and not by this document.<a href="#section-
 <a href="#section-12" class="section-number selfRef">12. </a><a href="#name-implementation-status" class="section-name selfRef">Implementation Status</a>
       </h2>
 <p id="section-12-1">Per <span>[<a href="#RFC7942" class="cite xref">RFC7942</a>]</span>, this specification is supported by a reference
-implementation:<a href="#section-12-1" class="pilcrow">¶</a></p>
-<p id="section-12-2">A reference implementation written in Go implements the protocol
-defined in this specification, including certificate issuance, AIC
-extension parsing, admission decisions, revocation, and offline
-authorization. The implementation is not yet publicly available;
-a public release is planned. Repository URLs will be added when the
-implementation is published.<a href="#section-12-2" class="pilcrow">¶</a></p>
-<p id="section-12-3">Tested capabilities include: certificate issuance with
+implementation.  The implementation is written in Go (standard
+library only, no CGO) and covers certificate issuance with
 authorizationConstraints, AIC extension parsing,
 DelegationAuthorization signature verification, permission
-intersection (P (AND) C (AND) T) decision, capability plugin<a href="#section-12-3" class="pilcrow">¶</a></p>
-<p id="section-12-4">routing, and offline constraint validation.<a href="#section-12-4" class="pilcrow">¶</a></p>
+intersection (P (AND) C (AND) T) decisions, capability plugin
+routing, revocation, and fully offline constraint validation.  The
+companion AIC-JWT profile <span>[<a href="#AIC-JWT" class="cite xref">AIC-JWT</a>]</span> is implemented in Go and in
+TypeScript/WebCrypto for browser-compatible runtimes, with a
+publicly accessible browser demo at https://varwof.org/aicjwt/.<a href="#section-12-1" class="pilcrow">¶</a></p>
+<p id="section-12-2">The implementation is publicly available at:<a href="#section-12-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-12-3.1">
+          <p id="section-12-3.1.1">https://github.com/varwof/types -- shared types, including the AIC
+extension structures and the AIC-JWT core (Apache-2.0),
+release v0.3.1;<a href="#section-12-3.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-12-3.2">
+          <p id="section-12-3.2.1">https://github.com/varwof/core -- PKI engine and certificate
+issuance (AGPL-3.0), release v0.2.0;<a href="#section-12-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-12-3.3">
+          <p id="section-12-3.3.1">https://github.com/varwof/engine -- in-memory PKI data engine
+(AGPL-3.0), release v0.2.0;<a href="#section-12-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-12-3.4">
+          <p id="section-12-3.4.1">https://github.com/varwof/gateway-core and
+https://github.com/varwof/gateway -- zero-trust gateways
+(Apache-2.0), gateway-core release v0.2.0 and gateway release v0.1.0;<a href="#section-12-3.4.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-12-3.5">
+          <p id="section-12-3.5.1">https://github.com/varwof/aic-jwt -- AIC-JWT implementation
+(Go wrapper and TypeScript/WebCrypto pipeline, Apache-2.0);<a href="#section-12-3.5.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-12-3.6">
+          <p id="section-12-3.6.1">https://github.com/varwof/client -- command-line client
+(Apache-2.0), release v0.1.0.<a href="#section-12-3.6.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-12-4">Language ports of the AIC extension structures and validation
+logic are also published: C/OpenSSL (https://github.com/varwof/openaic),
+Java (https://github.com/varwof/aic-lib-java), and .NET
+(https://github.com/varwof/aic-lib-dotnet), all Apache-2.0.<a href="#section-12-4" class="pilcrow">¶</a></p>
+<p id="section-12-5">Test status (2026-08-27): all modules build (11/11) and all unit
+test suites pass (go test ./...), including the certificate
+authority and HTTP serving packages; the AIC-JWT TypeScript suite
+passes (node --test).  The implementation status of the AIC-JWT
+profile, including its test suites, is documented in <span>[<a href="#AIC-JWT" class="cite xref">AIC-JWT</a>]</span>.<a href="#section-12-5" class="pilcrow">¶</a></p>
+<p id="section-12-6">Interoperability: an independent implementation of the AIC mapping
+boundary -- the EMILIA crossing profile, which consumes native AIC
+verifier results and binds them to one exact action and one
+relying-party admission domain -- reproduces 13/13 positive and
+hostile conformance cases against the same pinned sources.
+Publication of the joint conformance kit is in progress.<a href="#section-12-6" class="pilcrow">¶</a></p>
+<p id="section-12-7">Performance characteristics (informative; measured 2026-08-27 on an
+18-core x86 server, engine mode with MySQL; methodology and raw
+results at
+https://github.com/varwof/core/docs/bench/en/benchmark-report-2026-08-27.md):<a href="#section-12-7" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-12-8.1">
+          <p id="section-12-8.1.1">Enterprise steady state: 833 AIC certificates/s (500,000 agents,
+one certificate per agent per 10 minutes) at p50 = 2.4 ms and
+p99 = 5.0 ms, 0.00% error rate, approximately 7x headroom below
+the measured ceiling;<a href="#section-12-8.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-12-8.2">
+          <p id="section-12-8.2.1">Single-machine ceiling: approximately 6,100 AIC certificates/s
+(8,040/s with turbo boost), dominated by ECDSA signing and
+DelegationAuthorization verification;<a href="#section-12-8.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-12-8.3">
+          <p id="section-12-8.3.1">Worst-case burst: 500,000 simultaneous issuance requests drain in
+approximately 82 s with no dropped requests when the in-memory
+engine budget is sized accordingly;<a href="#section-12-8.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-12-8.4">
+          <p id="section-12-8.4.1">Low-end hardware: a Raspberry Pi 5 (4-core, 2.4 GHz) sustains the
+833/s steady state at p99 = 330 ms with approximately 2.5x
+headroom.<a href="#section-12-8.4.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
 </section>
 </div>
 <div id="interoperability">
@@ -3695,7 +3763,7 @@ message.<a href="#section-13.3.1-1" class="pilcrow">¶</a></p>
           </h4>
 <p id="section-13.3.2-1">The following is a recommended mapping from AIC conditions to the
 official TLS alert codes defined in the IANA TLS Alert Registry
-(<span>[<a href="#RFC8446" class="cite xref">RFC8446</a>]</span>); implementations MAY choose appropriate alerts in
+(<span>[<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>); implementations MAY choose appropriate alerts in
 accordance with the TLS specification.<a href="#section-13.3.2-1" class="pilcrow">¶</a></p>
 <table class="center" id="table-9">
             <caption><a href="#table-9" class="selfRef">Table 9</a></caption>
@@ -3794,10 +3862,10 @@ is not yet published.<a href="#section-14-2.6.1" class="pilcrow">¶</a></p>
       </h2>
 <p id="section-15-1">This document is subject to BCP 79 (RFC 8179). The author has filed
 patent applications related to the technologies described in this
-document, including Chinese patent application No. 202611238454.1 and
-No. 202611238460.7 (filed with the China National Intellectual Property
-Administration). The author will file an IPR disclosure with the IETF
-in accordance with BCP 79 requirements. Any applicable IPR
+document, including Chinese patent applications CN2026112384541 and
+CN2026112384607 (filed with the China National Intellectual Property
+Administration). The author has filed IPR disclosure 7553 with the
+IETF in accordance with BCP 79 requirements. Any applicable IPR
 disclosures are available through the IETF IPR disclosure system.<a href="#section-15-1" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -3815,8 +3883,28 @@ identity and accountability frameworks.<a href="#section-16-1" class="pilcrow">�
       <h2 id="name-change-log">
 <a href="#section-17" class="section-number selfRef">17. </a><a href="#name-change-log" class="section-name selfRef">Change Log</a>
       </h2>
-<p id="section-17-1">draft-wei-aic-identity-cert-00 (2026-08-18):
-* Initial individual draft.<a href="#section-17-1" class="pilcrow">¶</a></p>
+<p id="section-17-1">draft-wei-aic-identity-cert-01 (2026-08-30):<a href="#section-17-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-17-2.1">
+          <p id="section-17-2.1.1">Added public reference-implementation repository URLs with pinned
+release snapshots, test status, independent-implementation
+interoperability results, and measured performance characteristics
+(informative) to the Implementation Status section.<a href="#section-17-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-17-2.2">
+          <p id="section-17-2.2.1">Added informative reference to the AIC-JWT companion profile
+<span>[<a href="#AIC-JWT" class="cite xref">AIC-JWT</a>]</span>.<a href="#section-17-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-17-2.3">
+          <p id="section-17-2.3.1">Listed additional language ports (C/OpenSSL, Java, .NET).<a href="#section-17-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-17-2.4">
+          <p id="section-17-2.4.1">Aligned patent application numbers with IPR disclosure 7553
+(CN2026112384541, CN2026112384607).<a href="#section-17-2.4.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-17-3">draft-wei-aic-identity-cert-00 (2026-08-18):
+* Initial individual draft.<a href="#section-17-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="sec-combined-references">
@@ -3875,9 +3963,9 @@ identity and accountability frameworks.<a href="#section-16-1" class="pilcrow">�
         <dd>
 <span class="refAuthor">Sheffer, Y.</span> and <span class="refAuthor">A. Farrel</span>, <span class="refTitle">"Improving Awareness of Running Code: The Implementation Status Section"</span>, <span class="seriesInfo">BCP 205</span>, <span class="seriesInfo">RFC 7942</span>, <span class="seriesInfo">DOI 10.17487/RFC7942</span>, <time datetime="2016-07" class="refDate">July 2016</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc7942">https://www.rfc-editor.org/info/rfc7942</a>&gt;</span>. </dd>
 <dd class="break"></dd>
-<dt id="RFC8446">[RFC8446]</dt>
+<dt id="RFC9846">[RFC9846]</dt>
         <dd>
-<span class="refAuthor">Rescorla, E.</span>, <span class="refTitle">"The Transport Layer Security (TLS) Protocol Version 1.3"</span>, <span class="seriesInfo">RFC 8446</span>, <span class="seriesInfo">DOI 10.17487/RFC8446</span>, <time datetime="2018-08" class="refDate">August 2018</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8446">https://www.rfc-editor.org/info/rfc8446</a>&gt;</span>. </dd>
+<span class="refAuthor">Rescorla, E.</span>, <span class="refTitle">"The Transport Layer Security (TLS) Protocol Version 1.3"</span>, <span class="seriesInfo">RFC 9846</span>, <span class="seriesInfo">DOI 10.17487/RFC9846</span>, <time datetime="2026-07" class="refDate">July 2026</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc9846">https://www.rfc-editor.org/info/rfc9846</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC3820">[RFC3820]</dt>
         <dd>
@@ -3912,8 +4000,12 @@ identity and accountability frameworks.<a href="#section-16-1" class="pilcrow">�
 <span class="refAuthor">Singla, P.</span>, <span class="refTitle">"Agent Identity Protocol (AIP): Decentralized Identity and Delegation for AI Agents"</span>, <time datetime="2026-04-18" class="refDate">18 April 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-singla-agent-identity-protocol/">https://datatracker.ietf.org/doc/draft-singla-agent-identity-protocol/</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="CapabilityBound">[CapabilityBound]</dt>
-      <dd>
+        <dd>
 <span class="refAuthor">Zhou, Z.</span>, <span class="refTitle">"Governing Dynamic Capabilities: Cryptographic Binding and Reproducibility Verification for AI Agent Tool Use"</span>, <time datetime="2026-03-19" class="refDate">19 March 2026</time>, <span>&lt;<a href="https://arxiv.org/abs/2603.14332">https://arxiv.org/abs/2603.14332</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="AIC-JWT">[AIC-JWT]</dt>
+      <dd>
+<span class="refAuthor">Wei, J.</span>, <span class="refTitle">"AI Agent Identity Certificate (AIC) JSON Web Token Profile"</span>, <time datetime="2026-08-24" class="refDate">24 August 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-wei-aic-jwt/">https://datatracker.ietf.org/doc/draft-wei-aic-jwt/</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 </dl>
 </section>

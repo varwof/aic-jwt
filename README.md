@@ -19,7 +19,7 @@ Token Status List).
 ## Drafts
 
 - AIC-JWT: [draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md) (also `.xml` / `.txt` / `.html`) — read online: [Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-jwt/)
-- AIC X.509 companion: [draft-wei-aic-identity-cert-00.md](docs/draft-wei-aic-identity-cert-00.md) (also `.xml` / `.txt` / `.html`) — read online: [Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
+- AIC X.509 companion: [draft-wei-aic-identity-cert-01.md](docs/draft-wei-aic-identity-cert-01.md) (also `.xml` / `.txt` / `.html`) — read online: [Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
 
 ## Run
 

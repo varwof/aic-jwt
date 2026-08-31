@@ -1,7 +1,7 @@
 ---
 title: AI Agent Identity Certificate (AIC) Extension for X.509 v3
 abbrev: AIC Certificate
-docname: draft-wei-aic-identity-cert-00
+docname: draft-wei-aic-identity-cert-01
 category: exp
 submissiontype: independent
 stream: independent
@@ -36,7 +36,7 @@ normative:
 informative:
   RFC6749:
   RFC7942:
-  RFC8446:
+  RFC9846:
   RFC3820:
   RFC5755:
   SPIFFE:
@@ -100,6 +100,14 @@ informative:
         name: Ziling Zhou
     date: 2026-03-19
     target: https://arxiv.org/abs/2603.14332
+  AIC-JWT:
+    title: "AI Agent Identity Certificate (AIC) JSON Web Token Profile"
+    author:
+      -
+        ins: J. Wei
+        name: Jijie Wei
+    date: 2026-08-24
+    target: https://datatracker.ietf.org/doc/draft-wei-aic-jwt/
 
 --- abstract
 
@@ -1520,21 +1528,69 @@ by the capability schemes themselves and not by this document.
 # Implementation Status
 
 Per [RFC7942], this specification is supported by a reference
-implementation:
-
-A reference implementation written in Go implements the protocol
-defined in this specification, including certificate issuance, AIC
-extension parsing, admission decisions, revocation, and offline
-authorization. The implementation is not yet publicly available;
-a public release is planned. Repository URLs will be added when the
-implementation is published.
-
-Tested capabilities include: certificate issuance with
+implementation.  The implementation is written in Go (standard
+library only, no CGO) and covers certificate issuance with
 authorizationConstraints, AIC extension parsing,
 DelegationAuthorization signature verification, permission
-intersection (P (AND) C (AND) T) decision, capability plugin
+intersection (P (AND) C (AND) T) decisions, capability plugin
+routing, revocation, and fully offline constraint validation.  The
+companion AIC-JWT profile [AIC-JWT] is implemented in Go and in
+TypeScript/WebCrypto for browser-compatible runtimes, with a
+publicly accessible browser demo at https://varwof.org/aicjwt/.
 
-  routing, and offline constraint validation.
+The implementation is publicly available at:
+
+* https://github.com/varwof/types -- shared types, including the AIC
+  extension structures and the AIC-JWT core (Apache-2.0),
+  release v0.3.1;
+* https://github.com/varwof/core -- PKI engine and certificate
+  issuance (AGPL-3.0), release v0.2.0;
+* https://github.com/varwof/engine -- in-memory PKI data engine
+  (AGPL-3.0), release v0.2.0;
+* https://github.com/varwof/gateway-core and
+  https://github.com/varwof/gateway -- zero-trust gateways
+  (Apache-2.0), gateway-core release v0.2.0 and gateway release v0.1.0;
+* https://github.com/varwof/aic-jwt -- AIC-JWT implementation
+  (Go wrapper and TypeScript/WebCrypto pipeline, Apache-2.0);
+* https://github.com/varwof/client -- command-line client
+  (Apache-2.0), release v0.1.0.
+
+Language ports of the AIC extension structures and validation
+logic are also published: C/OpenSSL (https://github.com/varwof/openaic),
+Java (https://github.com/varwof/aic-lib-java), and .NET
+(https://github.com/varwof/aic-lib-dotnet), all Apache-2.0.
+
+Test status (2026-08-27): all modules build (11/11) and all unit
+test suites pass (go test ./...), including the certificate
+authority and HTTP serving packages; the AIC-JWT TypeScript suite
+passes (node --test).  The implementation status of the AIC-JWT
+profile, including its test suites, is documented in [AIC-JWT].
+
+Interoperability: an independent implementation of the AIC mapping
+boundary -- the EMILIA crossing profile, which consumes native AIC
+verifier results and binds them to one exact action and one
+relying-party admission domain -- reproduces 13/13 positive and
+hostile conformance cases against the same pinned sources.
+Publication of the joint conformance kit is in progress.
+
+Performance characteristics (informative; measured 2026-08-27 on an
+18-core x86 server, engine mode with MySQL; methodology and raw
+results at
+https://github.com/varwof/core/docs/bench/en/benchmark-report-2026-08-27.md):
+
+* Enterprise steady state: 833 AIC certificates/s (500,000 agents,
+  one certificate per agent per 10 minutes) at p50 = 2.4 ms and
+  p99 = 5.0 ms, 0.00% error rate, approximately 7x headroom below
+  the measured ceiling;
+* Single-machine ceiling: approximately 6,100 AIC certificates/s
+  (8,040/s with turbo boost), dominated by ECDSA signing and
+  DelegationAuthorization verification;
+* Worst-case burst: 500,000 simultaneous issuance requests drain in
+  approximately 82 s with no dropped requests when the in-memory
+  engine budget is sized accordingly;
+* Low-end hardware: a Raspberry Pi 5 (4-core, 2.4 GHz) sustains the
+  833/s steady state at p99 = 330 ms with approximately 2.5x
+  headroom.
 
 # Interoperability
 
@@ -1583,7 +1639,7 @@ message.
 
 The following is a recommended mapping from AIC conditions to the
 official TLS alert codes defined in the IANA TLS Alert Registry
-([RFC8446]); implementations MAY choose appropriate alerts in
+([RFC9846]); implementations MAY choose appropriate alerts in
 accordance with the TLS specification.
 
 | Condition | TLS Alert | Code | Description |
@@ -1639,6 +1695,18 @@ The author thanks the IETF community for ongoing discussions on agent
 identity and accountability frameworks.
 
 # Change Log
+
+draft-wei-aic-identity-cert-01 (2026-08-30):
+
+* Added public reference-implementation repository URLs with pinned
+  release snapshots, test status, independent-implementation
+  interoperability results, and measured performance characteristics
+  (informative) to the Implementation Status section.
+* Added informative reference to the AIC-JWT companion profile
+  [AIC-JWT].
+* Listed additional language ports (C/OpenSSL, Java, .NET).
+* Aligned patent application numbers with IPR disclosure 7553
+  (CN2026112384541, CN2026112384607).
 
 draft-wei-aic-identity-cert-00 (2026-08-18):
 * Initial individual draft.

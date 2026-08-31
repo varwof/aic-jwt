@@ -13,7 +13,7 @@ Token Status List）验证端到端行为。
 ## 草案
 
 - AIC-JWT：[draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md)（另有 `.xml` / `.txt` / `.html`）——在线阅读：[Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-jwt/)
-- AIC X.509 配套：[draft-wei-aic-identity-cert-00.md](docs/draft-wei-aic-identity-cert-00.md)（另有 `.xml` / `.txt` / `.html`）——在线阅读：[Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
+- AIC X.509 配套：[draft-wei-aic-identity-cert-01.md](docs/draft-wei-aic-identity-cert-01.md)（另有 `.xml` / `.txt` / `.html`）——在线阅读：[Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
 
 ## 运行
 
