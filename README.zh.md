@@ -1,5 +1,9 @@
 # AIC-JWT
 
+> ⚠️ **预览版** — 不可用于生产环境。API 和功能可能在正式发布前发生变更。
+> AIC 草案为 Experimental 状态。欢迎提交 PR 参与贡献（见
+> [CONTRIBUTING](../../.github/CONTRIBUTING.md)）。
+
 AIC-JWT（`draft-wei-aic-jwt-00`）的参考实现与验证程序：把草案的规范要求翻译成
 可执行的测试，并用真实 OAuth 场景（RFC 9068 / 7523 / 8693 / 9449、OBO、
 Token Status List）验证端到端行为。

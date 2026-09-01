@@ -1,5 +1,9 @@
 # AIC-JWT
 
+> ⚠️ **Preview** — Not for production use. APIs and features may change before
+> official release. The AIC drafts are Experimental. Contributions welcome
+> (PRs) — see [CONTRIBUTING](../../.github/CONTRIBUTING.md).
+
 Reference implementation and conformance suite for AIC-JWT
 (`draft-wei-aic-jwt-00`): the JSON Web Token profile of the AI Agent
 Identity Certificate (AIC). It translates the specification's
