@@ -208,6 +208,12 @@ test("TS: parameter intersection", () => {
   assert.ok(paramsWithinGrant({ max_rows: 1000 }, { max_rows: 100 }));
   assert.ok(!paramsWithinGrant({ max_rows: 1000 }, { max_rows: 5000 }));
   assert.ok(paramsWithinGrant({ regions: ["cn", "eu"] }, { regions: ["cn"] }));
+  // F8: a grant that carries required bounds must not be satisfied by an
+  // agent that drops the required key or omits params entirely.
+  assert.ok(!paramsWithinGrant({ max_rows: 1000 }, {}));
+  assert.ok(!paramsWithinGrant({ max_rows: 1000 }, null));
+  assert.ok(!paramsWithinGrant({ max_rows: 1000 }));
+  assert.ok(!paramsWithinGrant({ level: "admin", max: 5 }, { level: "admin" }));
 });
 
 test("TS: constraints", () => {
@@ -393,6 +399,21 @@ test("TS: multi-level depth check", async () => {
   await assert.rejects(check(env, tok, CAPS[0]), /max_depth/);
 });
 
+test("TS: rejectDepthGT1 default is false (matches Go)", async () => {
+  const env = await newEnv();
+  const { token: daTok, da } = await buildDA(env, MODE_AUTHORIZED, CAPS);
+  const tok = await buildOuter(env, daTok, da, MODE_AUTHORIZED, CAPS, (o) => {
+    o.aic.chain_depth = 2;
+    o.aic.max_depth = 2;
+  });
+  // Default (omitted): depth 2 is permitted (Go zero-value default).
+  const opts = defaultOpts(env) as Record<string, unknown>;
+  delete opts.rejectDepthGT1;
+  await assert.doesNotReject(validate(tok, { ...opts, requestCapability: CAPS[0] }));
+  // Explicit rejectDepthGT1: true rejects it.
+  await assert.rejects(validate(tok, { ...defaultOpts(env), requestCapability: CAPS[0], rejectDepthGT1: true }), /depth/);
+});
+
 test("TS: EdDSA algorithm (feature-detected)", async () => {
   const kp = await genEd25519();
   if (!kp) {
@@ -476,6 +497,18 @@ test("TS: DA standalone validation", async () => {
   const { token: daTok } = await buildDA(env, MODE_AUTHORIZED, CAPS);
   const parsed = await validateDA(daTok, { now: env.now, principalJWKS: { "principal-1": env.principal.publicKey }, nonceStore: new MemNonceStore() });
   assert.equal(parsed.agent_id, "agent:db-analyst-01");
+});
+
+test("TS: stale DA ts rejected (F6)", async () => {
+  const env = await newEnv();
+  const { token: daTok } = await buildDA(env, MODE_AUTHORIZED, CAPS, (d) => {
+    d.ts = Math.floor(env.now.getTime() / 1000) - 7200; // older than requested_lifetime 3600
+  });
+  const opts = { now: env.now, principalJWKS: { "principal-1": env.principal.publicKey }, nonceStore: new MemNonceStore() } as VerifyOptions;
+  await assert.rejects(() => validateDA(daTok, opts), /stale/);
+  // A fresh DA within the lifetime still validates.
+  const { token: freshTok } = await buildDA(env, MODE_AUTHORIZED, CAPS);
+  await assert.doesNotReject(() => validateDA(freshTok, opts));
 });
 
 function utf8e(str: string): Uint8Array {

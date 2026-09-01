@@ -227,7 +227,7 @@ func TestOAuthScenarioOBOAuthCode(t *testing.T) {
 // delegation_mode selects the accountability actor in audit records.
 func TestOAuthScenarioRepresentativeAuditActor(t *testing.T) {
 	env := newTestEnv(t)
-	caps := []Capability{{Scheme: "database", ID: "query:SELECT"}}
+	caps := []Capability{{Scheme: "database", ID: "query:SELECT", Params: json.RawMessage(`{"max_rows":100}`)}}
 	daTok, _ := buildDA(t, env, ModeRepresentative, caps, nil)
 	tok, _, err := env.issuer.IssueFromDA(daTok, &env.agentKey.PublicKey, []string{"https://rs.example.com"}, env.now)
 	if err != nil {

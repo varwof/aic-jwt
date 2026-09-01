@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -78,6 +79,8 @@ type Issuer struct {
 	Nonces        NonceStore
 	Status        map[string]bool // jti -> revoked
 	Codes         map[string]*AuthCode
+
+	stateMu sync.Mutex // guards Status and Codes maps (F3)
 }
 
 // NewIssuer creates an issuer with fresh replay/status state.
@@ -103,7 +106,10 @@ func (is *Issuer) IssuerKeys() map[string]crypto.PublicKey {
 // map (Token Status List simulation).
 func (is *Issuer) StatusCheckerFor() StatusChecker {
 	return func(ref StatusRef) error {
-		if is.Status[ref.URI] {
+		is.stateMu.Lock()
+		revoked := is.Status[ref.URI]
+		is.stateMu.Unlock()
+		if revoked {
 			return fmt.Errorf("token revoked (status list %s idx %d)", ref.URI, ref.Idx)
 		}
 		return nil
@@ -111,7 +117,11 @@ func (is *Issuer) StatusCheckerFor() StatusChecker {
 }
 
 // Revoke marks a token identifier as revoked.
-func (is *Issuer) Revoke(jti string) { is.Status[jti] = true }
+func (is *Issuer) Revoke(jti string) {
+	is.stateMu.Lock()
+	is.Status[jti] = true
+	is.stateMu.Unlock()
+}
 
 // IssueFromDA implements the RFC 7523 assertion-style issuance: the
 // Agent presents the principal-signed DA JWT, the AS validates it and
@@ -238,6 +248,7 @@ func (is *Issuer) NewAuthCode(clientID, requestedActor string, principal Princip
 		return "", err
 	}
 	sum := sha256.Sum256([]byte(verifier))
+	is.stateMu.Lock()
 	is.Codes[code] = &AuthCode{
 		ClientID:       clientID,
 		RequestedActor: requestedActor,
@@ -246,41 +257,52 @@ func (is *Issuer) NewAuthCode(clientID, requestedActor string, principal Princip
 		VerifierHash:   hex.EncodeToString(sum[:]),
 		ExpiresAt:      now.Add(ttl),
 	}
+	is.stateMu.Unlock()
 	return code, nil
 }
 
 // ExchangeCode implements the authorization code + PKCE exchange and
 // issues the AIC-JWT for the requested actor (OBO).
 func (is *Issuer) ExchangeCode(req TokenRequest, agentPub crypto.PublicKey, aud []string, now time.Time) (TokenResponse, error) {
+	is.stateMu.Lock()
 	code, ok := is.Codes[req.Code]
 	if !ok || code.Used || now.After(code.ExpiresAt) {
+		is.stateMu.Unlock()
 		return TokenResponse{}, fmt.Errorf("invalid_grant: authorization code invalid or expired")
 	}
 	if code.ClientID != req.ClientID {
+		is.stateMu.Unlock()
 		return TokenResponse{}, fmt.Errorf("invalid_grant: code bound to different client")
 	}
 	if req.CodeVerifier == "" {
+		is.stateMu.Unlock()
 		return TokenResponse{}, fmt.Errorf("invalid_request: code_verifier required (PKCE)")
 	}
 	sum := sha256.Sum256([]byte(req.CodeVerifier))
 	if hex.EncodeToString(sum[:]) != code.VerifierHash {
+		is.stateMu.Unlock()
 		return TokenResponse{}, fmt.Errorf("invalid_grant: PKCE verification failed")
 	}
 	code.Used = true
+	// Snapshot the fields needed after unlocking (IssueFromDA performs
+	// cryptographic work and must not hold the state lock).
+	da := code.DA
+	requestedActor := code.RequestedActor
+	is.stateMu.Unlock()
 	if req.ActorToken != "" {
 		// OBO: the agent must authenticate with its own token
-		if err := is.verifyAgentActor(req.ActorToken, code.RequestedActor); err != nil {
+		if err := is.verifyAgentActor(req.ActorToken, requestedActor, now); err != nil {
 			return TokenResponse{}, err
 		}
 	}
-	tok, outer, err := is.IssueFromDA(code.DA, agentPub, aud, now)
+	tok, outer, err := is.IssueFromDA(da, agentPub, aud, now)
 	if err != nil {
 		return TokenResponse{}, err
 	}
 	return TokenResponse{AccessToken: tok, TokenType: TokenTypeBearer, ExpiresIn: outer.Exp - outer.Iat}, nil
 }
 
-func (is *Issuer) verifyAgentActor(actorToken, expectedSub string) error {
+func (is *Issuer) verifyAgentActor(actorToken, expectedSub string, now time.Time) error {
 	hb, pb, _, err := ParseCompact(actorToken)
 	if err != nil {
 		return fmt.Errorf("invalid_actor_token: %w", err)
@@ -305,6 +327,21 @@ func (is *Issuer) verifyAgentActor(actorToken, expectedSub string) error {
 	}
 	if outer.Sub != expectedSub {
 		return fmt.Errorf("invalid_actor_token: sub %q != requested_actor %q", outer.Sub, expectedSub)
+	}
+	// L4: the actor token must be issued by this AS.
+	if outer.Iss != is.ID {
+		return fmt.Errorf("invalid_actor_token: issuer %q != %q", outer.Iss, is.ID)
+	}
+	// L4: the actor token must be targeted at this AS (OBO token endpoint).
+	if !outer.Aud.Contains(is.ID) {
+		return fmt.Errorf("invalid_actor_token: audience %v does not include %q", outer.Aud, is.ID)
+	}
+	// L2/L4: expiry + not-before (nbf represented by iat) enforcement.
+	if outer.Exp != 0 && time.Unix(outer.Exp, 0).Before(now) {
+		return fmt.Errorf("invalid_actor_token: token expired (exp=%d)", outer.Exp)
+	}
+	if outer.Iat != 0 && time.Unix(outer.Iat, 0).After(now.Add(time.Minute)) {
+		return fmt.Errorf("invalid_actor_token: token not yet valid (iat=%d)", outer.Iat)
 	}
 	return nil
 }
@@ -349,7 +386,7 @@ func (is *Issuer) TokenExchange(req TokenRequest, agentPub crypto.PublicKey, aud
 		return TokenResponse{}, fmt.Errorf("invalid_request: subject_token and actor_token required")
 	}
 	// Validate the subject (principal) token.
-	subject, err := is.verifyPrincipalToken(req.SubjectToken)
+	subject, err := is.verifyPrincipalToken(req.SubjectToken, now)
 	if err != nil {
 		return TokenResponse{}, err
 	}
@@ -427,7 +464,7 @@ func parseOuterPayload(actorToken string) (*OuterClaims, error) {
 	return &outer, nil
 }
 
-func (is *Issuer) verifyPrincipalToken(tok string) (*PrincipalTokenClaims, error) {
+func (is *Issuer) verifyPrincipalToken(tok string, now time.Time) (*PrincipalTokenClaims, error) {
 	hb, pb, _, err := ParseCompact(tok)
 	if err != nil {
 		return nil, fmt.Errorf("invalid_subject_token: %w", err)
@@ -446,6 +483,22 @@ func (is *Issuer) verifyPrincipalToken(tok string) (*PrincipalTokenClaims, error
 	var c PrincipalTokenClaims
 	if err := json.Unmarshal(pb, &c); err != nil {
 		return nil, err
+	}
+	// L4: subject token must be issued by this AS (iss).
+	if c.Iss != is.ID {
+		return nil, fmt.Errorf("invalid_subject_token: issuer %q != %q", c.Iss, is.ID)
+	}
+	// L4: subject token must be targeted at this AS (aud).
+	if !c.Aud.Contains(is.ID) {
+		return nil, fmt.Errorf("invalid_subject_token: audience %v does not include %q", c.Aud, is.ID)
+	}
+	// L1/L4: the subject token must not be expired, and must not be used
+	// before it is valid (nbf represented by iat).
+	if c.Exp != 0 && time.Unix(c.Exp, 0).Before(now) {
+		return nil, fmt.Errorf("invalid_subject_token: token expired (exp=%d)", c.Exp)
+	}
+	if c.Iat != 0 && time.Unix(c.Iat, 0).After(now.Add(time.Minute)) {
+		return nil, fmt.Errorf("invalid_subject_token: token not yet valid (iat=%d)", c.Iat)
 	}
 	return &c, nil
 }
@@ -495,6 +548,11 @@ func VerifyDPoP(proof, accessToken, htm, htu string, now time.Time, replay Nonce
 	}
 	if hdr.JWK == nil {
 		return nil, fmt.Errorf("dpop: header jwk required")
+	}
+	// L5: explicit algorithm allowlist; do not rely on the signature
+	// switch alone to reject an unexpected alg.
+	if !ImplementedAlgs[hdr.Alg] {
+		return nil, fmt.Errorf("dpop: unsupported alg %q", hdr.Alg)
 	}
 	pub, err := JWKToPublic(*hdr.JWK)
 	if err != nil {
@@ -607,10 +665,13 @@ func BearerToken(authz string) string {
 }
 
 type memNonceStore struct {
-	m map[string]bool
+	mu sync.Mutex
+	m  map[string]bool
 }
 
 func (s *memNonceStore) CheckAndAdd(nonce string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.m[nonce] {
 		return fmt.Errorf("reused nonce")
 	}

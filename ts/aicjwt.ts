@@ -527,7 +527,10 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 
 export function paramsWithinGrant(grant: unknown, agent: unknown): boolean {
   if (grant === undefined || grant === null) return true;
-  if (agent === undefined || agent === null) return true;
+  // The grant carries required bounds, but the agent supplied absent,
+  // null, or otherwise malformed params (e.g. omitted entirely or {}).
+  // This is a required-key omission and MUST NOT be treated as "within" (F8).
+  if (agent === undefined || agent === null) return false;
   return paramsWithin(grant, agent);
 }
 
@@ -537,6 +540,11 @@ function paramsWithin(grant: unknown, agent: unknown): boolean {
     for (const k of Object.keys(agent)) {
       if (!(k in grant)) return false;
       if (!paramsWithin((grant as Record<string, unknown>)[k], (agent as Record<string, unknown>)[k])) return false;
+    }
+    // Every key the grant requires MUST be present in the agent; dropping a
+    // bound/required parameter is an authorization escape (F8).
+    for (const k of Object.keys(grant)) {
+      if (!(k in agent)) return false;
     }
     return true;
   }
@@ -788,6 +796,14 @@ export async function validateDA(daToken: string, opts: VerifyOptions): Promise<
   checkHeader(header, TYP_DA);
   const da = payload as DAClaims;
   checkDARequired(da);
+  // F6: reject a stale DA whose ts is older than the requested_lifetime.
+  // A replayed DA signed long ago (but with an unused nonce) must not pass.
+  const rl = da.requested_lifetime;
+  if (Number.isInteger(rl) && rl > 0 && typeof da.ts === "number") {
+    const nowMs = opts.now ? opts.now.getTime() : Date.now();
+    const now = Math.floor(nowMs / 1000);
+    if (now - da.ts > rl) throw new Error("DA ts is stale");
+  }
   const pub = await resolvePrincipalKey(da.principal, header.kid, opts);
   await verifyCompact(daToken, header.alg, pub);
   const alg = da.principal.hash_alg || "sha-256";
@@ -874,7 +890,7 @@ export async function validate(token: string, opts: VerifyOptions): Promise<Deci
   const notes = evaluateConstraints(outer.aic.constraints ?? [], ctx, opts.constraintStrict ?? false);
 
   // Step 8: depth.
-  checkDepth(outer.aic, opts.rejectDepthGT1 ?? true);
+  checkDepth(outer.aic, opts.rejectDepthGT1 ?? false);
 
   // Step 9: capability evaluation.
   if (opts.requestCapability) {
