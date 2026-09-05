@@ -768,7 +768,7 @@ function checkOuterRequired(o: OuterClaims): void {
 }
 
 function checkDARequired(d: DAClaims): void {
-  if (d.ver !== 1) throw new Error("DA ver must be 1");
+  if (d.ver !== 2) throw new Error("DA ver must be 2");
   if (!d.iss || d.iss.length > 256) throw new Error("DA iss required, 1..256 chars");
   if (!d.sub || d.sub.length > 256) throw new Error("DA sub required, 1..256 chars");
   if (!d.aud || d.aud.length < 1) throw new Error("DA aud required");

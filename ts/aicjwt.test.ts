@@ -81,7 +81,7 @@ async function buildDA(env: Env, mode: string, caps: Capability[], mut?: (d: DAC
   const nonce = new Uint8Array(32);
   globalThis.crypto.getRandomValues(nonce);
   const da: DAClaims = {
-    ver: 1,
+    ver: 2,
     agent_id: "agent:db-analyst-01",
     principal: {
       realm: "corp.com",
@@ -434,7 +434,7 @@ test("TS: EdDSA algorithm (feature-detected)", async () => {
   const nonce = new Uint8Array(32);
   globalThis.crypto.getRandomValues(nonce);
   const da: DAClaims = {
-    ver: 1,
+    ver: 2,
     agent_id: "agent:ed",
     principal: { realm: "corp.com", id: "zhangsan", key_hash: "x".repeat(43), hash_alg: "jkt" },
     reason: { code: "TEST", desc: "eddsa" },
@@ -482,7 +482,7 @@ test("TS: RSA algorithms RS256 and PS256", async () => {
   const nonce = new Uint8Array(32);
   globalThis.crypto.getRandomValues(nonce);
   const da: DAClaims = {
-    ver: 1,
+    ver: 2,
     agent_id: "agent:rsa",
     principal: { realm: "corp.com", id: "zhangsan", key_hash: await keyHashOf(env.principal.publicKey, "sha-256"), hash_alg: "sha-256" },
     reason: { code: "TEST", desc: "rsa" },
