@@ -88,7 +88,7 @@ export async function approveDelegation(
   opts: { constraints?: Capability[]; now?: Date } = {},
 ): Promise<DAApproval> {
   const claims: DAClaims = {
-    ver: 1,
+    ver: 2,
     agent_id: req.agent.id,
     principal: human.claims.principal,
     reason: req.reason,
