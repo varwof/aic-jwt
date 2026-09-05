@@ -99,6 +99,13 @@ export async function approveDelegation(
     ts: req.ts,
     nonce: req.nonce,
   };
+  const psub = `${human.claims.principal.realm}:${human.claims.principal.id}`;
+  claims.iss = psub;
+  claims.sub = psub; // representative mode: resource owner is the grant subject
+  claims.aud = ["https://demo-ca.example.com/aic"];
+  claims.exp = req.ts + req.requestedLifetime;
+  claims.iat = req.ts;
+  claims.jti = req.nonce;
   const token = await signCompact(
     { alg: DEMO_ALG, typ: TYP_DA, kid: human.kid },
     claims,

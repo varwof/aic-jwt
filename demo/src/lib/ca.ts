@@ -7,6 +7,7 @@ import { t } from "./i18n.ts";
 import {
   ALLOWED_MODE_REPRESENTATIVE,
   MAX_LIFETIME,
+  MODE_REPRESENTATIVE,
   TYP_OUTER,
   keyHashOf,
   signCompact,
@@ -71,9 +72,11 @@ export async function issueAgentCertificate(opts: {
 
   // PKI Mode step 5: CA constructs and signs the outer AIC-JWT.
   const lifetime = Math.min(da.requested_lifetime, MAX_LIFETIME);
+  const rep = da.delegation_mode === MODE_REPRESENTATIVE;
+  const subject = rep ? `${da.principal.realm}:${da.principal.id}` : da.agent_id;
   const claims: OuterClaims = {
     iss: opts.ca.issuer,
-    sub: da.agent_id,
+    sub: subject,
     aud: opts.audience ?? "https://gw.example.com",
     iat: nowSec,
     exp: nowSec + lifetime,
@@ -90,6 +93,7 @@ export async function issueAgentCertificate(opts: {
     },
     da: opts.da.token,
   };
+  if (rep) claims.act = { sub: da.agent_id };
   const token = await signCompact(
     { alg: DEMO_ALG, typ: TYP_OUTER, kid: opts.ca.kid },
     claims,

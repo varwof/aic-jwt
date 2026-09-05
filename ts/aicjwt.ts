@@ -70,10 +70,17 @@ export interface OuterClaims {
   aic: AICClaims;
   da?: string;
   authorization_details?: unknown;
+  act?: { sub: string };
 }
 
 export interface DAClaims {
   ver: number;
+  iss: string;
+  sub: string;
+  aud: Audience;
+  exp: number;
+  iat?: number;
+  jti: string;
   agent_id: string;
   principal: Principal;
   reason: Reason;
@@ -103,6 +110,7 @@ export interface PAClaims {
 export interface Decision {
   permit: boolean;
   actor: string;
+  executor: string;
   principal: string;
   capabilities: Capability[];
   notes: string[];
@@ -730,6 +738,7 @@ function checkOuterRequired(o: OuterClaims): void {
   if (!o.iss) throw new Error("iss required");
   if (!o.sub || o.sub.length > 256) throw new Error("sub (agentId) required, 1..256 chars");
   if (audienceList(o.aud).length === 0) throw new Error("aud required");
+  if (audienceList(o.aud).some((a) => !a)) throw new Error("aud must not contain empty strings");
   if (!o.iat || !o.exp || o.exp <= o.iat) throw new Error("iat/exp required and exp must be after iat");
   if (!o.jti) throw new Error("jti required");
   if (!o.cnf || !o.cnf.jkt) throw new Error("cnf required");
@@ -760,6 +769,13 @@ function checkOuterRequired(o: OuterClaims): void {
 
 function checkDARequired(d: DAClaims): void {
   if (d.ver !== 1) throw new Error("DA ver must be 1");
+  if (!d.iss || d.iss.length > 256) throw new Error("DA iss required, 1..256 chars");
+  if (!d.sub || d.sub.length > 256) throw new Error("DA sub required, 1..256 chars");
+  if (!d.aud || d.aud.length < 1) throw new Error("DA aud required");
+  const audList = Array.isArray(d.aud) ? d.aud : [d.aud];
+  if (audList.some((a) => !a)) throw new Error("DA aud must not contain empty strings");
+  if (!d.exp) throw new Error("DA exp required");
+  if (!d.jti || d.jti.length > 128) throw new Error("DA jti required, 1..128 chars");
   if (!d.agent_id || d.agent_id.length > 256) throw new Error("DA agent_id required, 1..256 chars");
   if (!d.principal || !d.principal.realm || !d.principal.id || !d.principal.key_hash) throw new Error("DA principal required");
   if (!d.reason || !d.reason.code || !d.reason.desc) throw new Error("DA reason.code and reason.desc required");
@@ -777,6 +793,10 @@ function checkDARequired(d: DAClaims): void {
   }
   if (!d.ts) throw new Error("DA ts required");
   if (!d.nonce) throw new Error("DA nonce required");
+  if (d.jti !== d.nonce) throw new Error("DA jti must equal nonce");
+  // A zero iat is treated as absent (Go parity: a missing iat maps to
+  // zero in a non-pointer int64).
+  if (d.iat != null && d.iat !== 0 && d.iat !== d.ts) throw new Error("DA iat must equal ts when present");
 }
 
 async function resolvePrincipalKey(p: Principal, kid: string | undefined, opts: VerifyOptions): Promise<CryptoKey> {
@@ -796,6 +816,17 @@ export async function validateDA(daToken: string, opts: VerifyOptions): Promise<
   checkHeader(header, TYP_DA);
   const da = payload as DAClaims;
   checkDARequired(da);
+  const expectedExp = da.ts + da.requested_lifetime;
+  if (da.exp !== expectedExp) throw new Error(`DA exp ${da.exp} must equal ts+requested_lifetime ${expectedExp}`);
+  const nowSec = Math.floor((opts.now ? opts.now.getTime() : Date.now()) / 1000);
+  if (nowSec > da.exp) throw new Error(`DA expired (exp ${da.exp})`);
+  const principalSubject = `${da.principal.realm}:${da.principal.id}`;
+  if (da.iss !== principalSubject) throw new Error(`DA iss ${da.iss} != principal ${principalSubject}`);
+  if (da.delegation_mode === MODE_AUTHORIZED) {
+    if (da.sub !== da.agent_id) throw new Error(`authorized mode: DA sub ${da.sub} must be the agent ${da.agent_id}`);
+  } else if (da.delegation_mode === MODE_REPRESENTATIVE) {
+    if (da.sub !== principalSubject) throw new Error(`representative mode: DA sub ${da.sub} must be the resource owner ${principalSubject}`);
+  }
   // F6: reject a stale DA whose ts is older than the requested_lifetime.
   // A replayed DA signed long ago (but with an unused nonce) must not pass.
   const rl = da.requested_lifetime;
@@ -816,7 +847,14 @@ export async function validateDA(daToken: string, opts: VerifyOptions): Promise<
 }
 
 function checkConsistency(o: OuterClaims, da: DAClaims): void {
-  if (da.agent_id !== o.sub) throw new Error(`DA agent_id ${da.agent_id} != outer sub ${o.sub}`);
+  if (da.delegation_mode === MODE_REPRESENTATIVE) {
+    const psub = `${da.principal.realm}:${da.principal.id}`;
+    if (o.sub !== da.sub || o.sub !== psub) throw new Error(`representative mode: outer sub ${o.sub} must be the resource owner ${da.sub}`);
+    if (!o.act || o.act.sub !== da.agent_id) throw new Error(`representative mode: outer act must carry the agent ${da.agent_id}`);
+  } else {
+    if (da.agent_id !== o.sub) throw new Error(`DA agent_id ${da.agent_id} != outer sub ${o.sub}`);
+    if (o.act) throw new Error("authorized mode: outer act must be absent");
+  }
   if (stableStringify(da.principal) !== stableStringify(o.aic.principal)) throw new Error("DA principal != outer aic.principal");
   if (da.delegation_mode !== o.aic.delegation_mode) throw new Error("DA delegation_mode != outer aic.delegation_mode");
   if (stableStringify(da.capabilities) !== stableStringify(o.aic.capabilities)) throw new Error("DA capabilities != outer aic.capabilities");
@@ -873,6 +911,8 @@ export async function validate(token: string, opts: VerifyOptions): Promise<Deci
     da = await validateDA(outer.da, opts);
     if (opts.requireJtiNonceMatch && outer.jti !== da.nonce) throw new Error("step4: outer jti does not match DA nonce");
     if (outer.exp - outer.iat > da.requested_lifetime) throw new Error("step4: token lifetime exceeds DA requested_lifetime");
+    if (outer.exp > da.exp) throw new Error("step4: outer exp exceeds DA exp");
+    if (!audienceList(da.aud).includes(outer.iss)) throw new Error("step4: DA aud does not include outer iss");
   } else if (outer.aic.delegation_mode === MODE_REPRESENTATIVE) {
     throw new Error("step4: representative mode requires a DA JWT");
   } else if (outer.exp - outer.iat > MAX_LIFETIME) {
@@ -919,10 +959,17 @@ export async function validate(token: string, opts: VerifyOptions): Promise<Deci
     if (thumb !== outer.cnf.jkt) throw new Error("cnf: presenter key does not match token cnf.jkt (token theft)");
   }
 
+  // Audit actor per draft Section 8.1: in representative mode the
+  // principal is recorded as the actor and the agent as the executor.
+  // This is distinct from the RFC 8693 `act` claim (outer.act), which
+  // names the executing agent on tokens whose subject is the resource
+  // owner.
   const actor = outer.aic.delegation_mode === MODE_REPRESENTATIVE ? outer.aic.principal.id : outer.sub;
+  const executor = outer.act?.sub ?? outer.sub;
   return {
     permit: true,
     actor,
+    executor,
     principal: outer.aic.principal.id,
     capabilities: outer.aic.capabilities,
     notes,
