@@ -37,6 +37,7 @@ type TokenRequest struct {
 	ClientID            string
 	ClientAssertion     string
 	ClientAssertionType string
+	Assertion           string // RFC 7523 jwt-bearer grant assertion (the DA JWT)
 	SubjectToken        string
 	SubjectTokenType    string
 	ActorToken          string
@@ -136,19 +137,21 @@ func (is *Issuer) IssueFromDA(daToken string, agentPub crypto.PublicKey, aud []s
 	if err != nil {
 		return "", nil, fmt.Errorf("token endpoint: DA validation failed: %w", err)
 	}
+	if !da.Aud.Contains(is.ID) {
+		return "", nil, fmt.Errorf("token endpoint: DA aud %v does not include this AS %q", da.Aud, is.ID)
+	}
 	agentThumb, err := KeyHashOf(agentPub, "jkt")
 	if err != nil {
 		return "", nil, err
 	}
 	iat := now.Unix()
-	exp := iat + int64(da.RequestedLifetime)
 	outer := OuterClaims{
 		Iss: is.ID,
-		Sub: da.AgentID,
+		Sub: da.OAuthSubject(),
 		Aud: Audience(aud),
 		Iat: iat,
-		Exp: exp,
-		Jti: da.Nonce,
+		Exp: da.Exp,
+		Jti: da.Jti,
 		Cnf: &Cnf{Jkt: agentThumb},
 		Aic: &AICClaims{
 			Ver:            1,
@@ -158,6 +161,9 @@ func (is *Issuer) IssueFromDA(daToken string, agentPub crypto.PublicKey, aud []s
 			Constraints:    da.Constraints,
 		},
 		Da: daToken,
+	}
+	if da.DelegationMode == ModeRepresentative {
+		outer.Act = &Actor{Sub: da.AgentID}
 	}
 	tok, err := is.signOuter(&outer)
 	if err != nil {
@@ -210,10 +216,24 @@ func (is *Issuer) IssueLightweight(agentID string, agentPub crypto.PublicKey, pr
 func (is *Issuer) HandleTokenRequest(req TokenRequest, agentPub crypto.PublicKey, aud []string, now time.Time) (TokenResponse, error) {
 	switch req.GrantType {
 	case GrantTypeJWTBearer:
-		if req.ClientAssertion == "" || req.ClientAssertionType != AssertionTypeJWT {
-			return TokenResponse{}, fmt.Errorf("invalid_request: client_assertion with type jwt-bearer required")
+		grant := req.Assertion
+		if grant == "" {
+			// Backward-compatible fallback: a DA supplied in the legacy
+			// client_assertion field is treated as the grant assertion.
+			grant = req.ClientAssertion
 		}
-		tok, outer, err := is.IssueFromDA(req.ClientAssertion, agentPub, aud, now)
+		if grant == "" || req.ClientAssertionType != AssertionTypeJWT {
+			return TokenResponse{}, fmt.Errorf("invalid_request: jwt-bearer assertion with type jwt-bearer required")
+		}
+		// Client authentication by client_assertion (RFC 7523 Section 2.2)
+		// is distinct from the grant assertion.  When both are present, the
+		// client assertion MUST be an authorized-mode AIC-JWT (Section 10.2).
+		if req.Assertion != "" && req.ClientAssertion != "" {
+			if err := is.verifyClientAssertion(req.ClientAssertion, req.ClientID, now); err != nil {
+				return TokenResponse{}, err
+			}
+		}
+		tok, outer, err := is.IssueFromDA(grant, agentPub, aud, now)
 		if err != nil {
 			return TokenResponse{}, err
 		}
@@ -225,6 +245,33 @@ func (is *Issuer) HandleTokenRequest(req TokenRequest, agentPub crypto.PublicKey
 	default:
 		return TokenResponse{}, fmt.Errorf("unsupported_grant_type: %q", req.GrantType)
 	}
+}
+
+// verifyClientAssertion validates an RFC 7523 client_assertion used for
+// client authentication.  Per Section 10.2 the client assertion MUST be
+// an authorized-mode AIC-JWT whose subject is the OAuth client_id of
+// the agent; a representative-mode token has the resource owner as sub
+// and MUST NOT be used in this slot.
+func (is *Issuer) verifyClientAssertion(assertion, clientID string, now time.Time) error {
+	payload, err := parseOuterPayload(assertion)
+	if err != nil {
+		return fmt.Errorf("invalid_client: %w", err)
+	}
+	if payload.Aic == nil || payload.Aic.DelegationMode != ModeAuthorized {
+		return fmt.Errorf("invalid_client: client assertion must be an authorized-mode AIC-JWT")
+	}
+	if clientID != "" && payload.Sub != clientID {
+		return fmt.Errorf("invalid_client: client assertion sub %q != client_id %q", payload.Sub, clientID)
+	}
+	if _, err := Validate(assertion, VerifyOptions{
+		Now:            now,
+		ExpectedIssuer: is.ID,
+		IssuerKeys:     is.IssuerKeys(),
+		PrincipalJWKS:  is.PrincipalJWKS,
+	}); err != nil {
+		return fmt.Errorf("invalid_client: %w", err)
+	}
+	return nil
 }
 
 func (is *Issuer) signOuter(o *OuterClaims) (string, error) {
@@ -390,6 +437,17 @@ func (is *Issuer) TokenExchange(req TokenRequest, agentPub crypto.PublicKey, aud
 	if err != nil {
 		return TokenResponse{}, err
 	}
+	// Reject a representative-mode token in the actor slot before deep
+	// validation: its `sub` is the resource owner, so it is not an actor
+	// credential.  (The subsequent Validate call would reject it anyway
+	// without PA material; this gives the reason in its semantics.)
+	actorPayload0, err := parseOuterPayload(req.ActorToken)
+	if err != nil {
+		return TokenResponse{}, fmt.Errorf("invalid_actor_token: %w", err)
+	}
+	if actorPayload0.Aic.DelegationMode == ModeRepresentative {
+		return TokenResponse{}, fmt.Errorf("invalid_actor_token: representative-mode token is not an actor credential")
+	}
 	// Validate the actor (Agent) AIC-JWT.
 	actor, err := Validate(req.ActorToken, VerifyOptions{
 		Now:            now,
@@ -415,6 +473,12 @@ func (is *Issuer) TokenExchange(req TokenRequest, agentPub crypto.PublicKey, aud
 	actorClaims, err := parseOuterPayload(req.ActorToken)
 	if err != nil {
 		return TokenResponse{}, fmt.Errorf("invalid_actor_token: %w", err)
+	}
+	if actorClaims.Aic.DelegationMode == ModeRepresentative {
+		// A representative-mode token has the resource owner as `sub` and
+		// is not an actor credential; the actor_token slot is for the
+		// agent's own (authorized-mode) AIC-JWT.
+		return TokenResponse{}, fmt.Errorf("invalid_actor_token: representative-mode token is not an actor credential")
 	}
 	iat := now.Unix()
 	exp := iat + 3600

@@ -25,6 +25,7 @@ type (
 	Header               = aj.Header
 	Audience             = aj.Audience
 	Cnf                  = aj.Cnf
+	Actor                = aj.Actor
 	StatusRef            = aj.StatusRef
 	Principal            = aj.Principal
 	Capability           = aj.Capability

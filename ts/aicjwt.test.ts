@@ -96,6 +96,12 @@ async function buildDA(env: Env, mode: string, caps: Capability[], mut?: (d: DAC
     ts: Math.floor(env.now.getTime() / 1000),
     nonce: b64uEncode(nonce),
   };
+  da.iss = "corp.com:zhangsan";
+  da.aud = ["https://as.example.com"];
+  da.sub = mode === MODE_REPRESENTATIVE ? "corp.com:zhangsan" : da.agent_id;
+  da.exp = da.ts + da.requested_lifetime;
+  da.iat = da.ts;
+  da.jti = da.nonce;
   if (mut) mut(da);
   const token = await signCompact({ alg: "ES256", typ: TYP_DA, kid: "principal-1" }, da, env.principal.privateKey);
   return { token, da };
@@ -131,6 +137,10 @@ async function buildOuter(
     },
     da: daToken,
   };
+  if (mode === MODE_REPRESENTATIVE) {
+    outer.sub = "corp.com:zhangsan";
+    outer.act = { sub: da ? da.agent_id : "agent:db-analyst-01" };
+  }
   if (mut) mut(outer);
   return signCompact({ alg: "ES256", typ: TYP_OUTER, kid: "issuer-1" }, outer, env.issuer.privateKey);
 }
@@ -340,6 +350,7 @@ test("TS: representative audit actor + P_grants subset", async () => {
   const tok = await buildOuter(env, daTok, undefined as never, MODE_REPRESENTATIVE, CAPS, (o) => { o.da = daTok; });
   const dec = await check(env, tok, CAPS[0]);
   assert.equal(dec.actor, "zhangsan");
+  assert.equal(dec.executor, "agent:db-analyst-01");
   // capability outside P_grants must fail
   const { token: daTok2 } = await buildDA(env, MODE_REPRESENTATIVE, [{ scheme: "database", id: "admin:purge" }]);
   const tok2 = await buildOuter(env, daTok2, undefined as never, MODE_REPRESENTATIVE, [{ scheme: "database", id: "admin:purge" }], (o) => { o.da = daTok2; });
@@ -433,6 +444,12 @@ test("TS: EdDSA algorithm (feature-detected)", async () => {
     ts: Math.floor(Date.now() / 1000),
     nonce: b64uEncode(nonce),
   };
+  da.iss = "corp.com:zhangsan";
+  da.aud = ["https://as.example.com"];
+  da.sub = da.agent_id;
+  da.exp = da.ts + da.requested_lifetime;
+  da.iat = da.ts;
+  da.jti = da.nonce;
   const daTok = await signCompact({ alg: "EdDSA", typ: TYP_DA, kid: "ed-1" }, da, kp.privateKey);
   await verifyCompact(daTok, "EdDSA", kp.publicKey);
   assert.ok(daTok.split(".").length === 3);
@@ -475,6 +492,12 @@ test("TS: RSA algorithms RS256 and PS256", async () => {
     ts: Math.floor(Date.now() / 1000),
     nonce: b64uEncode(nonce),
   };
+  da.iss = "corp.com:zhangsan";
+  da.aud = ["https://as.example.com"];
+  da.sub = da.agent_id;
+  da.exp = da.ts + da.requested_lifetime;
+  da.iat = da.ts;
+  da.jti = da.nonce;
   const daTok1 = await signCompact({ alg: "RS256", typ: TYP_DA, kid: "rsa-1" }, da, rsaPkcs1.privateKey);
   await verifyCompact(daTok1, "RS256", rsaPkcs1.publicKey);
   const daTok2 = await signCompact({ alg: "PS256", typ: TYP_DA, kid: "rsa-pss-1" }, da, rsaPss.privateKey);
@@ -502,10 +525,14 @@ test("TS: DA standalone validation", async () => {
 test("TS: stale DA ts rejected (F6)", async () => {
   const env = await newEnv();
   const { token: daTok } = await buildDA(env, MODE_AUTHORIZED, CAPS, (d) => {
-    d.ts = Math.floor(env.now.getTime() / 1000) - 7200; // older than requested_lifetime 3600
+    // 2h in the past: with canonical exp = ts + requested_lifetime the DA
+    // is expired and must be rejected even when the nonce is fresh.
+    d.ts = Math.floor(env.now.getTime() / 1000) - 7200;
+    d.iat = d.ts;
+    d.exp = d.ts + d.requested_lifetime;
   });
   const opts = { now: env.now, principalJWKS: { "principal-1": env.principal.publicKey }, nonceStore: new MemNonceStore() } as VerifyOptions;
-  await assert.rejects(() => validateDA(daTok, opts), /stale/);
+  await assert.rejects(() => validateDA(daTok, opts), /expired/);
   // A fresh DA within the lifetime still validates.
   const { token: freshTok } = await buildDA(env, MODE_AUTHORIZED, CAPS);
   await assert.doesNotReject(() => validateDA(freshTok, opts));
