@@ -7,6 +7,7 @@
   "scripts": {
     "build": "node demo/scripts/build.mjs",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
     "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test demo/test/demo.test.ts"
   },
   "devDependencies": {

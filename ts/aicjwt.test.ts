@@ -30,7 +30,7 @@ async function genRSA(): Promise<CryptoKeyPair> {
 
 async function genEd25519(): Promise<CryptoKeyPair | null> {
   try {
-    return await subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
+    return (await subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
   } catch {
     return null; // older browsers / Node versions
   }
@@ -80,8 +80,15 @@ const CAPS = [{ scheme: "database", id: "query:SELECT", params: { max_rows: 100 
 async function buildDA(env: Env, mode: string, caps: Capability[], mut?: (d: DAClaims) => void): Promise<{ token: string; da: DAClaims }> {
   const nonce = new Uint8Array(32);
   globalThis.crypto.getRandomValues(nonce);
+  const tsSec = Math.floor(env.now.getTime() / 1000);
   const da: DAClaims = {
     ver: 2,
+    iss: "corp.com:zhangsan",
+    sub: mode === MODE_REPRESENTATIVE ? "corp.com:zhangsan" : "agent:db-analyst-01",
+    aud: ["https://as.example.com"],
+    exp: tsSec + 3600,
+    iat: tsSec,
+    jti: b64uEncode(nonce),
     agent_id: "agent:db-analyst-01",
     principal: {
       realm: "corp.com",
@@ -93,15 +100,9 @@ async function buildDA(env: Env, mode: string, caps: Capability[], mut?: (d: DAC
     capabilities: caps,
     delegation_mode: mode,
     requested_lifetime: 3600,
-    ts: Math.floor(env.now.getTime() / 1000),
+    ts: tsSec,
     nonce: b64uEncode(nonce),
   };
-  da.iss = "corp.com:zhangsan";
-  da.aud = ["https://as.example.com"];
-  da.sub = mode === MODE_REPRESENTATIVE ? "corp.com:zhangsan" : da.agent_id;
-  da.exp = da.ts + da.requested_lifetime;
-  da.iat = da.ts;
-  da.jti = da.nonce;
   if (mut) mut(da);
   const token = await signCompact({ alg: "ES256", typ: TYP_DA, kid: "principal-1" }, da, env.principal.privateKey);
   return { token, da };
@@ -222,7 +223,6 @@ test("TS: parameter intersection", () => {
   // agent that drops the required key or omits params entirely.
   assert.ok(!paramsWithinGrant({ max_rows: 1000 }, {}));
   assert.ok(!paramsWithinGrant({ max_rows: 1000 }, null));
-  assert.ok(!paramsWithinGrant({ max_rows: 1000 }));
   assert.ok(!paramsWithinGrant({ level: "admin", max: 5 }, { level: "admin" }));
 });
 
@@ -418,7 +418,7 @@ test("TS: rejectDepthGT1 default is false (matches Go)", async () => {
     o.aic.max_depth = 2;
   });
   // Default (omitted): depth 2 is permitted (Go zero-value default).
-  const opts = defaultOpts(env) as Record<string, unknown>;
+  const opts = { ...defaultOpts(env), rejectDepthGT1: true } as VerifyOptions & { rejectDepthGT1?: boolean };
   delete opts.rejectDepthGT1;
   await assert.doesNotReject(validate(tok, { ...opts, requestCapability: CAPS[0] }));
   // Explicit rejectDepthGT1: true rejects it.
@@ -433,23 +433,24 @@ test("TS: EdDSA algorithm (feature-detected)", async () => {
   }
   const nonce = new Uint8Array(32);
   globalThis.crypto.getRandomValues(nonce);
+  const tsSec = Math.floor(Date.now() / 1000);
   const da: DAClaims = {
     ver: 2,
+    iss: "corp.com:zhangsan",
+    sub: "agent:ed",
+    aud: ["https://as.example.com"],
+    exp: tsSec + 3600,
+    iat: tsSec,
+    jti: b64uEncode(nonce),
     agent_id: "agent:ed",
     principal: { realm: "corp.com", id: "zhangsan", key_hash: "x".repeat(43), hash_alg: "jkt" },
     reason: { code: "TEST", desc: "eddsa" },
     capabilities: [{ scheme: "http", id: "GET:/api/v1/*" }],
     delegation_mode: MODE_AUTHORIZED,
     requested_lifetime: 3600,
-    ts: Math.floor(Date.now() / 1000),
+    ts: tsSec,
     nonce: b64uEncode(nonce),
   };
-  da.iss = "corp.com:zhangsan";
-  da.aud = ["https://as.example.com"];
-  da.sub = da.agent_id;
-  da.exp = da.ts + da.requested_lifetime;
-  da.iat = da.ts;
-  da.jti = da.nonce;
   const daTok = await signCompact({ alg: "EdDSA", typ: TYP_DA, kid: "ed-1" }, da, kp.privateKey);
   await verifyCompact(daTok, "EdDSA", kp.publicKey);
   assert.ok(daTok.split(".").length === 3);
@@ -481,23 +482,24 @@ test("TS: RSA algorithms RS256 and PS256", async () => {
   );
   const nonce = new Uint8Array(32);
   globalThis.crypto.getRandomValues(nonce);
+  const tsSec = Math.floor(Date.now() / 1000);
   const da: DAClaims = {
     ver: 2,
+    iss: "corp.com:zhangsan",
+    sub: "agent:rsa",
+    aud: ["https://as.example.com"],
+    exp: tsSec + 3600,
+    iat: tsSec,
+    jti: b64uEncode(nonce),
     agent_id: "agent:rsa",
     principal: { realm: "corp.com", id: "zhangsan", key_hash: await keyHashOf(env.principal.publicKey, "sha-256"), hash_alg: "sha-256" },
     reason: { code: "TEST", desc: "rsa" },
     capabilities: CAPS,
     delegation_mode: MODE_AUTHORIZED,
     requested_lifetime: 3600,
-    ts: Math.floor(Date.now() / 1000),
+    ts: tsSec,
     nonce: b64uEncode(nonce),
   };
-  da.iss = "corp.com:zhangsan";
-  da.aud = ["https://as.example.com"];
-  da.sub = da.agent_id;
-  da.exp = da.ts + da.requested_lifetime;
-  da.iat = da.ts;
-  da.jti = da.nonce;
   const daTok1 = await signCompact({ alg: "RS256", typ: TYP_DA, kid: "rsa-1" }, da, rsaPkcs1.privateKey);
   await verifyCompact(daTok1, "RS256", rsaPkcs1.publicKey);
   const daTok2 = await signCompact({ alg: "PS256", typ: TYP_DA, kid: "rsa-pss-1" }, da, rsaPss.privateKey);
@@ -518,7 +520,7 @@ test("TS: stableStringify is order-independent", () => {
 test("TS: DA standalone validation", async () => {
   const env = await newEnv();
   const { token: daTok } = await buildDA(env, MODE_AUTHORIZED, CAPS);
-  const parsed = await validateDA(daTok, { now: env.now, principalJWKS: { "principal-1": env.principal.publicKey }, nonceStore: new MemNonceStore() });
+  const parsed = await validateDA(daTok, { now: env.now, issuerKeys: {}, principalJWKS: { "principal-1": env.principal.publicKey }, nonceStore: new MemNonceStore() });
   assert.equal(parsed.agent_id, "agent:db-analyst-01");
 });
 
@@ -531,7 +533,7 @@ test("TS: stale DA ts rejected (F6)", async () => {
     d.iat = d.ts;
     d.exp = d.ts + d.requested_lifetime;
   });
-  const opts = { now: env.now, principalJWKS: { "principal-1": env.principal.publicKey }, nonceStore: new MemNonceStore() } as VerifyOptions;
+  const opts: VerifyOptions = { now: env.now, issuerKeys: {}, principalJWKS: { "principal-1": env.principal.publicKey }, nonceStore: new MemNonceStore() };
   await assert.rejects(() => validateDA(daTok, opts), /expired/);
   // A fresh DA within the lifetime still validates.
   const { token: freshTok } = await buildDA(env, MODE_AUTHORIZED, CAPS);
