@@ -87,9 +87,9 @@ func TestOAuthJWTBearerGrantRepresentative(t *testing.T) {
 	caps := []Capability{{Scheme: "database", ID: "query:SELECT", Params: json.RawMessage(`{"max_rows":100}`)}}
 	daTok, _ := buildDA(t, env, ModeRepresentative, caps, nil)
 	resp, err := env.issuer.HandleTokenRequest(TokenRequest{
-		GrantType:          GrantTypeJWTBearer,
+		GrantType:           GrantTypeJWTBearer,
 		ClientAssertionType: AssertionTypeJWT,
-		Assertion:          daTok,
+		Assertion:           daTok,
 	}, &env.agentKey.PublicKey, []string{"https://rs.example.com"}, env.now)
 	if err != nil {
 		t.Fatalf("HandleTokenRequest: %v", err)
