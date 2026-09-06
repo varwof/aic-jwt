@@ -83,7 +83,7 @@ X.509 AIC extension:
 go test -race ./...             # all Go tests incl. race (OAuth scenarios)
 go vet ./...                    # vet
 npm run typecheck               # tsc --noEmit
-node --test ts/aicjwt.test.ts   # TS/WebCrypto unit suite, 20 cases (Node 22+)
+node --test ts/aicjwt.test.ts ts/x509_bridge.test.ts   # TS/WebCrypto unit suites, 24 cases (Node 22+)
 npm test                        # demo library tests (Node 22+)
 cd verify && npm install        # third-party JWT verification deps
 cd verify && npm run gen && npm run verify:jose && npm run verify:jwt

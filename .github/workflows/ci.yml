@@ -28,7 +28,7 @@ jobs:
       - name: TypeScript typecheck (tests)
         run: npm run typecheck:tests
       - name: TypeScript unit suite
-        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --test ts/aicjwt.test.ts
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --test ts/aicjwt.test.ts ts/x509_bridge.test.ts
       - name: Demo suite
         run: npm test
       - name: Third-party JWT verification

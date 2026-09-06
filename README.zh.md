@@ -69,7 +69,7 @@ AIC-JWT 是 X.509 AIC 同一授权数据模型的 JWT 载体：
 go test -race ./...             # Go 全部测试（含 race、OAuth 场景）
 go vet ./...                    # vet
 npm run typecheck               # tsc --noEmit
-node --test ts/aicjwt.test.ts   # TS/WebCrypto 单元 20 用例（Node 22+）
+node --test ts/aicjwt.test.ts ts/x509_bridge.test.ts   # TS/WebCrypto 单元 24 用例（Node 22+）
 npm test                        # demo 库测试（Node 22+）
 cd verify && npm install        # 第三方 JWT 验证依赖
 cd verify && npm run gen && npm run verify:jose && npm run verify:jwt
