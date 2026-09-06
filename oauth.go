@@ -172,6 +172,37 @@ func (is *Issuer) IssueFromDA(daToken string, agentPub crypto.PublicKey, aud []s
 	return tok, &outer, nil
 }
 
+// IssueFromDAShort mints a short-lived outer AIC-JWT from a DA: the
+// principal signs the DA once (covering a longer window), and every
+// subsequent call issues a fresh token with a lifetime capped at the
+// DA's requested_lifetime.  This is the X.509-style approach
+// (short-lived, no refresh token) applied at the JWT layer.
+func (is *Issuer) IssueFromDAShort(daToken string, agentPub crypto.PublicKey, aud []string, lifetimeSec int64, now time.Time) (string, *OuterClaims, error) {
+	_, outer, err := is.IssueFromDA(daToken, agentPub, aud, now)
+	if err != nil {
+		return "", nil, err
+	}
+	if lifetimeSec < 1 {
+		return "", nil, fmt.Errorf("short issuance: lifetime %d out of range", lifetimeSec)
+	}
+	if laterSec(outer.Iat, lifetimeSec) > outer.Exp {
+		return "", nil, fmt.Errorf("short issuance: lifetime %d exceeds DA expiration (DA exp %d)", lifetimeSec, outer.Exp)
+	}
+	outer.Exp = laterSec(outer.Iat, lifetimeSec)
+	tok, err := is.signOuter(outer)
+	if err != nil {
+		return "", nil, err
+	}
+	return tok, outer, nil
+}
+
+func laterSec(iat, n int64) int64 {
+	if iat > (1<<62)-n {
+		return 1 << 62
+	}
+	return iat + n
+}
+
 // IssueLightweight implements the lightweight consumer profile (draft
 // Section 10.3): authorized mode only, no DA JWT.
 func (is *Issuer) IssueLightweight(agentID string, agentPub crypto.PublicKey, principal Principal,
