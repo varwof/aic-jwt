@@ -1,0 +1,16 @@
+{
+  "name": "aic-jwt-verify",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Third-party JWT library verification for AIC-JWT (jose and jsonwebtoken)",
+  "scripts": {
+    "gen": "node --disable-warning=ExperimentalWarning --experimental-strip-types generate-fixture.mjs",
+    "verify:jose": "node verify-jose.mjs",
+    "verify:jwt": "node verify-jsonwebtoken.mjs"
+  },
+  "dependencies": {
+    "jose": "^5.9.6",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
