@@ -1495,8 +1495,10 @@ this specification:
   (go test ./...).
 * A TypeScript/WebCrypto reference implementation implements the same
   pipeline for browser-compatible runtimes, including EdDSA and
-  RSA-PSS coverage with feature detection.  Test suite: 15 cases, all
-  passing (node --test ts/aicjwt.test.ts).
+  RSA-PSS coverage with feature detection.  Test suites pass: the
+  TypeScript unit suite (node --test ts/aicjwt.test.ts), the demo
+  scenario suite (npm test), and tsc --noEmit for the TypeScript
+  sources; the Go suites also pass under go test -race.
 
 The Go core is maintained in github.com/varwof/types (package
 types/aicjwt); the wrapper, OAuth protocol-layer simulation, and the
@@ -1504,6 +1506,13 @@ TypeScript/WebCrypto implementation are in
 https://github.com/varwof/aic-jwt.  Findings verified by these
 implementations are incorporated in Sections 6.2, 9.4, 10.5, 10.6,
 11, and 13.8.
+
+Release state (2026-09-06): the RFC 7523 claims/role model defined by
+this revision (DA ver=2) is implemented in the types release v0.5.2
+(https://github.com/varwof/types/tree/v0.5.2) and the aic-jwt
+reference branch
+(https://github.com/varwof/aic-jwt/tree/fix/rfc7523-oauth-flow).
+Earlier revisions of this draft pinned the types v0.3.1 release.
 
 ---
 

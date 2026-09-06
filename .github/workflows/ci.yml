@@ -2,33 +2,39 @@ name: ci
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
-
-env:
-  GOPROXY: https://goproxy.cn,direct
-  GOFLAGS: -buildvcs=false
-  GOSUMDB: sum.golang.org
 
 jobs:
-  go:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
-      - run: go vet ./...
-      - run: go test -count=1 ./...
-
-  ts:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+          go-version: "1.26"
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-      - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npm test
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            verify/package-lock.json
+      - name: Go tests (race)
+        run: go test -race ./...
+      - name: Go vet
+        run: go vet ./...
+      - name: TypeScript typecheck (sources)
+        run: npm ci && npm run typecheck
+      - name: TypeScript typecheck (tests)
+        run: npm run typecheck:tests
+      - name: TypeScript unit suite
+        run: node --disable-warning=ExperimentalWarning --experimental-strip-types --test ts/aicjwt.test.ts
+      - name: Demo suite
+        run: npm test
+      - name: Third-party JWT verification
+        run: |
+          cd verify
+          npm install
+          npm run gen
+          npm run verify:jose
+          npm run verify:jwt
