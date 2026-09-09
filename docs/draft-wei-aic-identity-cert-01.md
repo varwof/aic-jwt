@@ -730,6 +730,15 @@ DelegationAuthTBS ::= SEQUENCE {
     nonce                    OCTET STRING (SIZE(32))
 }
 
+DelegationAuthTBS v2 (DA version 2):
+: Reuses the v1 sequence above with `version = 2` and appends a trailing
+  `[1] EXPLICIT AgentKeyBinding` binding the Agent's certificate SPKI.
+  The binding binds the delegating user's authorization evidence to the
+  Agent's live key: redeemed only against a certificate whose SPKI SHA-256
+  equals the binding value. Verifiers accept v1 (`version` = 1 and the
+  legacy INTEGER 0 encoding) and v2; direct (non-bridged) deployments
+  submit the Agent SPKI at issuance and verify version 2.
+
 -- PrincipalAuthorization Extension (OID: 1.3.6.1.4.1.66257.1.2)
 -- Carried in the Principal's certificate.
 
