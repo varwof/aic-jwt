@@ -1,0 +1,10 @@
+{
+  "description": "EXPERIMENTAL: exploratory WIT/WPT interop study artifact (2026-09); not for production use.",
+  "name": "wit-wpt-interop-ts",
+  "private": true,
+  "type": "module",
+  "description": "AIC -> WIT/WPT interop harness (Node-only, zero npm deps)",
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/scenarios.test.ts"
+  }
+}
