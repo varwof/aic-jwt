@@ -7,42 +7,53 @@
 <title>AI Agent Identity Certificate (AIC) JSON Web Token Profile</title>
 <meta content="Jijie Wei" name="author">
 <meta content="
-       This document defines the JSON Web Token (JWT) profile of the AI Agent
-Identity Certificate (AIC), a companion specification to
- draft-wei-aic-identity-cert-00 .  The AIC X.509 extension binds an AI
-Agent's cryptographic identity to a responsible principal, carries a
-structured capability container, authorization boundary constraints,
-delegation mode, and principal-signed delegation evidence, and enables
-fully offline authorization decisions at the TLS layer. 
-       AIC-JWT encodes the same data model as an application-layer JWT so that
-the same authorization semantics can be enforced by HTTP APIs, web
-applications, and OAuth 2.0 ecosystems where transport-layer
-certificate presentation is not available.  The specification defines: 
+       The AI Agent Identity Certificate (AIC) defines a data model in
+which the cryptographic identity of an AI agent is bound to a
+responsible principal, together with a structured capability
+container, delegation mode, authorization constraints, and
+principal-signed delegation evidence.  The normative definition of
+this model is specified by the AIC specification, where it is encoded in ASN.1 and
+carried in X.509 certificates, enabling authorization decisions at
+the transport layer, including fully offline operation. 
+       Many HTTP, web, and OAuth 2.0 (RFC 6749) deployments cannot present
+X.509 certificates at the transport layer.  This document therefore
+defines AIC-JWT as a JWT-based application-layer representation of
+the AIC data model defined by the AIC specification.  AIC-JWT is a companion
+representation, not a replacement for the X.509 form and not a new
+authorization model. 
+       AIC-JWT uses the standard JWT (RFC 7519) and JWS (RFC 7515) mechanisms
+as its carrier and cryptographic envelope.  Its authorization
+semantics are inherited from the AIC model rather than defined by
+JWT or OAuth.  In particular, the outer AIC-JWT is issuer-signed and
+carries the principal-signed DA JWT as the value of the top-level
+ da  claim, preserving the two-layer signature model
+of AIC. 
+       The normative content of this document is limited to: 
        
          
-           a nested JWS structure that preserves the two-layer signature model
-of AIC -- a principal-signed DelegationAuthorization (DA) JWT
-embedded in and covered by an issuer-signed outer JWT; 
+           a mapping from the X.509 AIC extension fields to JWT claims that
+preserves the AIC data model and its two-layer signature model; 
          
          
-           a namespaced  aic  claim carrying agent identity, principal binding,
-structured capabilities, delegation mode, and authorization
-constraints; 
+           representation and key-binding rules for the principal-signed
+DelegationAuthorization; 
          
          
-           principal binding by SPKI hash or JWK thumbprint, with optional
-credential bundle presentation in PKI deployments; 
+           validation rules for AIC-JWT, including claim consistency,
+audience, and key-binding checks; and 
          
          
-           issuance flows for both PKI-based CAs and OAuth 2.0 authorization
-servers, including RFC 7523 assertion exchange and RFC 8693 token
-exchange; 
-         
-         
-           validation rules, IANA registrations, and security considerations
-aligned with the OAuth 2.0 and JOSE specifications. 
+           a thin OAuth 2.0 consumption profile defining presentation of the
+DA at a token endpoint as an RFC 7523 JWT bearer authorization
+grant and the projection of the AIC  authorized  and
+ representative  delegation modes into OAuth roles. 
          
        
+       Authorization semantics, policy evaluation, obligations, and
+cross-vocabulary equivalence of capabilities are outside the scope
+of this document; they are determined by the AIC capability schemes
+and deployment policies referenced by the AIC specification.  IANA registrations and
+security considerations for the AIC-JWT representation are included. 
     " name="description">
 <meta content="xml2rfc 3.34.0" name="generator">
 <meta content="JSON Web Token" name="keyword">
@@ -1261,7 +1272,7 @@ li > p:last-of-type:only-child {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Wei</td>
-<td class="center">Expires 10 March 2027</td>
+<td class="center">Expires 12 March 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1274,12 +1285,12 @@ li > p:last-of-type:only-child {
 <dd class="internet-draft">draft-wei-aic-jwt-01</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-09-06" class="published">6 September 2026</time>
+<time datetime="2026-09-08" class="published">8 September 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Experimental</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-03-10">10 March 2027</time></dd>
+<dd class="expires"><time datetime="2027-03-12">12 March 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1292,42 +1303,53 @@ li > p:last-of-type:only-child {
 <h1 id="title">AI Agent Identity Certificate (AIC) JSON Web Token Profile</h1>
 <section id="section-abstract">
       <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
-<p id="section-abstract-1">This document defines the JSON Web Token (JWT) profile of the AI Agent
-Identity Certificate (AIC), a companion specification to
-<code>draft-wei-aic-identity-cert-00</code>.  The AIC X.509 extension binds an AI
-Agent's cryptographic identity to a responsible principal, carries a
-structured capability container, authorization boundary constraints,
-delegation mode, and principal-signed delegation evidence, and enables
-fully offline authorization decisions at the TLS layer.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
-<p id="section-abstract-2">AIC-JWT encodes the same data model as an application-layer JWT so that
-the same authorization semantics can be enforced by HTTP APIs, web
-applications, and OAuth 2.0 ecosystems where transport-layer
-certificate presentation is not available.  The specification defines:<a href="#section-abstract-2" class="pilcrow">¶</a></p>
+<p id="section-abstract-1">The AI Agent Identity Certificate (AIC) defines a data model in
+which the cryptographic identity of an AI agent is bound to a
+responsible principal, together with a structured capability
+container, delegation mode, authorization constraints, and
+principal-signed delegation evidence.  The normative definition of
+this model is specified by the AIC specification, where it is encoded in ASN.1 and
+carried in X.509 certificates, enabling authorization decisions at
+the transport layer, including fully offline operation.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+<p id="section-abstract-2">Many HTTP, web, and OAuth 2.0 (RFC 6749) deployments cannot present
+X.509 certificates at the transport layer.  This document therefore
+defines AIC-JWT as a JWT-based application-layer representation of
+the AIC data model defined by the AIC specification.  AIC-JWT is a companion
+representation, not a replacement for the X.509 form and not a new
+authorization model.<a href="#section-abstract-2" class="pilcrow">¶</a></p>
+<p id="section-abstract-3">AIC-JWT uses the standard JWT (RFC 7519) and JWS (RFC 7515) mechanisms
+as its carrier and cryptographic envelope.  Its authorization
+semantics are inherited from the AIC model rather than defined by
+JWT or OAuth.  In particular, the outer AIC-JWT is issuer-signed and
+carries the principal-signed DA JWT as the value of the top-level
+<code>da</code> claim, preserving the two-layer signature model
+of AIC.<a href="#section-abstract-3" class="pilcrow">¶</a></p>
+<p id="section-abstract-4">The normative content of this document is limited to:<a href="#section-abstract-4" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-abstract-3.1">
-          <p id="section-abstract-3.1.1">a nested JWS structure that preserves the two-layer signature model
-of AIC -- a principal-signed DelegationAuthorization (DA) JWT
-embedded in and covered by an issuer-signed outer JWT;<a href="#section-abstract-3.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-abstract-5.1">
+          <p id="section-abstract-5.1.1">a mapping from the X.509 AIC extension fields to JWT claims that
+preserves the AIC data model and its two-layer signature model;<a href="#section-abstract-5.1.1" class="pilcrow">¶</a></p>
 </li>
-        <li class="normal" id="section-abstract-3.2">
-          <p id="section-abstract-3.2.1">a namespaced <code>aic</code> claim carrying agent identity, principal binding,
-structured capabilities, delegation mode, and authorization
-constraints;<a href="#section-abstract-3.2.1" class="pilcrow">¶</a></p>
+        <li class="normal" id="section-abstract-5.2">
+          <p id="section-abstract-5.2.1">representation and key-binding rules for the principal-signed
+DelegationAuthorization;<a href="#section-abstract-5.2.1" class="pilcrow">¶</a></p>
 </li>
-        <li class="normal" id="section-abstract-3.3">
-          <p id="section-abstract-3.3.1">principal binding by SPKI hash or JWK thumbprint, with optional
-credential bundle presentation in PKI deployments;<a href="#section-abstract-3.3.1" class="pilcrow">¶</a></p>
+        <li class="normal" id="section-abstract-5.3">
+          <p id="section-abstract-5.3.1">validation rules for AIC-JWT, including claim consistency,
+audience, and key-binding checks; and<a href="#section-abstract-5.3.1" class="pilcrow">¶</a></p>
 </li>
-        <li class="normal" id="section-abstract-3.4">
-          <p id="section-abstract-3.4.1">issuance flows for both PKI-based CAs and OAuth 2.0 authorization
-servers, including RFC 7523 assertion exchange and RFC 8693 token
-exchange;<a href="#section-abstract-3.4.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-abstract-3.5">
-          <p id="section-abstract-3.5.1">validation rules, IANA registrations, and security considerations
-aligned with the OAuth 2.0 and JOSE specifications.<a href="#section-abstract-3.5.1" class="pilcrow">¶</a></p>
+        <li class="normal" id="section-abstract-5.4">
+          <p id="section-abstract-5.4.1">a thin OAuth 2.0 consumption profile defining presentation of the
+DA at a token endpoint as an RFC 7523 JWT bearer authorization
+grant and the projection of the AIC <code>authorized</code> and
+<code>representative</code> delegation modes into OAuth roles.<a href="#section-abstract-5.4.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
+<p id="section-abstract-6">Authorization semantics, policy evaluation, obligations, and
+cross-vocabulary equivalence of capabilities are outside the scope
+of this document; they are determined by the AIC capability schemes
+and deployment policies referenced by the AIC specification.  IANA registrations and
+security considerations for the AIC-JWT representation are included.<a href="#section-abstract-6" class="pilcrow">¶</a></p>
 </section>
 <div id="status-of-memo">
 <section id="section-boilerplate.1">
@@ -1348,7 +1370,7 @@ aligned with the OAuth 2.0 and JOSE specifications.<a href="#section-abstract-3.
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 10 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 12 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1452,10 +1474,10 @@ aligned with the OAuth 2.0 and JOSE specifications.<a href="#section-abstract-3.
                 </ul>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
-                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-da-jwt-payload-delegationau" class="internal xref">DA JWT Payload (DelegationAuthTBS Equivalent)</a></p>
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-da-jwt-payload" class="internal xref">DA JWT Payload</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.3">
-                <p id="section-toc.1-1.5.2.3.1"><a href="#section-5.3" class="auto internal xref">5.3</a>.  <a href="#name-pa-jwt-payload-principalaut" class="internal xref">PA JWT Payload (PrincipalAuthorization Equivalent)</a></p>
+                <p id="section-toc.1-1.5.2.3.1"><a href="#section-5.3" class="auto internal xref">5.3</a>.  <a href="#name-pa-jwt-payload" class="internal xref">PA JWT Payload</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.4">
                 <p id="section-toc.1-1.5.2.4.1"><a href="#section-5.4" class="auto internal xref">5.4</a>.  <a href="#name-mapping-from-asn1" class="internal xref">Mapping from ASN.1</a></p>
@@ -1469,10 +1491,10 @@ aligned with the OAuth 2.0 and JOSE specifications.<a href="#section-abstract-3.
                 <p id="section-toc.1-1.6.2.1.1"><a href="#section-6.1" class="auto internal xref">6.1</a>.  <a href="#name-capability-object" class="internal xref">Capability Object</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.2">
-                <p id="section-toc.1-1.6.2.2.1"><a href="#section-6.2" class="auto internal xref">6.2</a>.  <a href="#name-glob-matching" class="internal xref">Glob Matching</a></p>
+                <p id="section-toc.1-1.6.2.2.1"><a href="#section-6.2" class="auto internal xref">6.2</a>.  <a href="#name-identifier-matching" class="internal xref">Identifier Matching</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.3">
-                <p id="section-toc.1-1.6.2.3.1"><a href="#section-6.3" class="auto internal xref">6.3</a>.  <a href="#name-parameter-intersection" class="internal xref">Parameter Intersection</a></p>
+                <p id="section-toc.1-1.6.2.3.1"><a href="#section-6.3" class="auto internal xref">6.3</a>.  <a href="#name-capability-subset-and-param" class="internal xref">Capability Subset and Parameter Semantics</a></p>
 </li>
             </ul>
 </li>
@@ -1503,7 +1525,7 @@ aligned with the OAuth 2.0 and JOSE specifications.<a href="#section-abstract-3.
                 <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-principal-binding-check" class="internal xref">Principal Binding Check</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.3">
-                <p id="section-toc.1-1.9.2.3.1"><a href="#section-9.3" class="auto internal xref">9.3</a>.  <a href="#name-deployment-note-offline-ope" class="internal xref">Deployment Note: Offline Operation</a></p>
+                <p id="section-toc.1-1.9.2.3.1"><a href="#section-9.3" class="auto internal xref">9.3</a>.  <a href="#name-cached-verification-and-dis" class="internal xref">Cached Verification and Disconnected Deployments</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.4">
                 <p id="section-toc.1-1.9.2.4.1"><a href="#section-9.4" class="auto internal xref">9.4</a>.  <a href="#name-browser-key-material" class="internal xref">Browser Key Material</a></p>
@@ -1639,13 +1661,14 @@ aligned with the OAuth 2.0 and JOSE specifications.<a href="#section-abstract-3.
         <h3 id="name-problem-statement">
 <a href="#section-1.1" class="section-number selfRef">1.1. </a><a href="#name-problem-statement" class="section-name selfRef">Problem Statement</a>
         </h3>
-<p id="section-1.1-1">The AIC X.509 extension defined in <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>
-answers five questions at TLS handshake time: who delegated the
-authorization, which operations were authorized, under which
-constraints the Agent may run, how long the authorization is valid, and
-who is accountable for the Agent's actions.  Its design goal is that
-the complete authorization decision can be made offline, from the
-certificate and its credential bundle alone.<a href="#section-1.1-1" class="pilcrow">¶</a></p>
+<p id="section-1.1-1">The AIC X.509 extension defined in <span>[<a href="#AIC" class="cite xref">AIC</a>]</span> binds an AI agent's
+cryptographic identity to a responsible principal and carries the
+information needed to determine whether a requested operation is
+authorized, including the delegated authority, capabilities,
+authorization constraints, validity, and accountability information.
+Its design goal is that the authorization decision can be made offline
+from the certificate and its credential bundle alone, including at the
+TLS layer.<a href="#section-1.1-1" class="pilcrow">¶</a></p>
 <p id="section-1.1-2">Many deployment contexts cannot present X.509 certificates at the
 transport layer:<a href="#section-1.1-2" class="pilcrow">¶</a></p>
 <ul class="normal">
@@ -1664,9 +1687,10 @@ headers rather than mTLS client certificates;<a href="#section-1.1-3.1.1" class=
 application.<a href="#section-1.1-3.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-1.1-4">In these contexts the AIC data model must be carried in an
-application-layer token.  This document defines that token as a JWT
-<span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span> secured by JWS <span>[<a href="#RFC7515" class="cite xref">RFC7515</a>]</span>, and names it <strong>AIC-JWT</strong>.<a href="#section-1.1-4" class="pilcrow">¶</a></p>
+<p id="section-1.1-4">In these contexts, the AIC data model needs an application-layer
+carrier.  This document defines that carrier as a JSON Web Token (JWT)
+<span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span> secured by JSON Web Signature (JWS) <span>[<a href="#RFC7515" class="cite xref">RFC7515</a>]</span>, and names it
+<strong>AIC-JWT</strong>.<a href="#section-1.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="relationship-to-the-x509-aic-extension">
@@ -1674,10 +1698,11 @@ application-layer token.  This document defines that token as a JWT
         <h3 id="name-relationship-to-the-x509-ai">
 <a href="#section-1.2" class="section-number selfRef">1.2. </a><a href="#name-relationship-to-the-x509-ai" class="section-name selfRef">Relationship to the X.509 AIC Extension</a>
         </h3>
-<p id="section-1.2-1">AIC-JWT is a companion profile, not a replacement.  The X.509 AIC
-extension remains the transport-layer profile used during TLS
-handshakes in managed, regulated, and air-gapped environments.  AIC-JWT
-carries the same semantic model at the application layer:<a href="#section-1.2-1" class="pilcrow">¶</a></p>
+<p id="section-1.2-1">AIC-JWT is a companion profile of the AIC X.509 extension, not a
+replacement and not a new authorization model.  The X.509 AIC
+extension remains the transport-layer representation used during TLS
+handshakes in managed, regulated, and air-gapped environments.
+AIC-JWT carries the same AIC semantic model at the application layer:<a href="#section-1.2-1" class="pilcrow">¶</a></p>
 <table class="center" id="table-1">
           <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
 <thead>
@@ -1697,7 +1722,8 @@ carries the same semantic model at the application layer:<a href="#section-1.2-1
               <td class="text-left" rowspan="1" colspan="1">Signature framework</td>
               <td class="text-left" rowspan="1" colspan="1">X.509 / <span>[<a href="#RFC5280" class="cite xref">RFC5280</a>]</span>
 </td>
-              <td class="text-left" rowspan="1" colspan="1">JWS / RFC 7515</td>
+              <td class="text-left" rowspan="1" colspan="1">JWS / <span>[<a href="#RFC7515" class="cite xref">RFC7515</a>]</span>
+</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">Principal signature</td>
@@ -1705,25 +1731,25 @@ carries the same semantic model at the application layer:<a href="#section-1.2-1
               <td class="text-left" rowspan="1" colspan="1">Inner DA JWT (<code>typ=aic+da+jwt</code>)</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">Issuer coverage</td>
-              <td class="text-left" rowspan="1" colspan="1">CA signature over TBSCertificate</td>
-              <td class="text-left" rowspan="1" colspan="1">Outer JWT signature over the full payload</td>
+              <td class="text-left" rowspan="1" colspan="1">Issuer signature coverage</td>
+              <td class="text-left" rowspan="1" colspan="1">CA signature over the TBSCertificate</td>
+              <td class="text-left" rowspan="1" colspan="1">JWS signature over the protected header and payload</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">Key binding</td>
-              <td class="text-left" rowspan="1" colspan="1">X.509 subject public key</td>
+              <td class="text-left" rowspan="1" colspan="1">Agent key binding</td>
+              <td class="text-left" rowspan="1" colspan="1">Subject public key (SPKI)</td>
               <td class="text-left" rowspan="1" colspan="1">
-                <code>cnf</code> claim (RFC 7800)</td>
+                <code>cnf</code> claim (<span>[<a href="#RFC7800" class="cite xref">RFC7800</a>]</span>)</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">Revocation</td>
+              <td class="text-left" rowspan="1" colspan="1">Revocation / status</td>
               <td class="text-left" rowspan="1" colspan="1">CRL / OCSP / short lifetime</td>
               <td class="text-left" rowspan="1" colspan="1">Token Status List / short lifetime</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">Trust bootstrap</td>
+              <td class="text-left" rowspan="1" colspan="1">Trust establishment</td>
               <td class="text-left" rowspan="1" colspan="1">Certificate chain</td>
-              <td class="text-left" rowspan="1" colspan="1">JWKS / <code>x5c</code> / credential bundle</td>
+              <td class="text-left" rowspan="1" colspan="1">Trusted JWKS, <code>x5c</code>, or credential bundle</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">Transport</td>
@@ -1732,11 +1758,22 @@ carries the same semantic model at the application layer:<a href="#section-1.2-1
             </tr>
           </tbody>
         </table>
-<p id="section-1.2-3">The two profiles share: <code>agentId</code>, <code>principalUid</code>, the Capability
-container (<code>schemeId</code>/<code>capabilityId</code>/<code>parameters</code>), <code>delegationMode</code>,
-<code>authorizationConstraints</code>, the DelegationAuthorization structure, the
+<p id="section-1.2-3">The two profiles share the same semantic elements, including the
+agent identity, principal identity, the Capability container
+(<code>schemeId</code>/<code>capabilityId</code>/<code>parameters</code>), delegation mode,
+authorization constraints, the DelegationAuthorization structure, the
 permission intersection model, capability glob matching, and the
-credential bundle verification model.<a href="#section-1.2-3" class="pilcrow">¶</a></p>
+credential-bundle verification semantics.<a href="#section-1.2-3" class="pilcrow">¶</a></p>
+<p id="section-1.2-4"><span>[<a href="#AIC" class="cite xref">AIC</a>]</span> is the authoritative specification for AIC semantics.  This
+document does not redefine those semantics.  Where this document and
+<span>[<a href="#AIC" class="cite xref">AIC</a>]</span> could otherwise be read as disagreeing about the AIC model,
+<span>[<a href="#AIC" class="cite xref">AIC</a>]</span> governs the semantics, while this document governs the JWT
+representation, JWT-specific validation, and OAuth-facing projection.<a href="#section-1.2-4" class="pilcrow">¶</a></p>
+<p id="section-1.2-5">AIC-JWT is a credential representation, not a policy engine.  It
+carries the AIC delegation and constraint semantics for the consumer
+to evaluate; how a relying party combines those semantics with its
+own local execution policy is a deployment decision outside this
+document.<a href="#section-1.2-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="scope">
@@ -1744,16 +1781,46 @@ credential bundle verification model.<a href="#section-1.2-3" class="pilcrow">¶
         <h3 id="name-scope">
 <a href="#section-1.3" class="section-number selfRef">1.3. </a><a href="#name-scope" class="section-name selfRef">Scope</a>
         </h3>
-<p id="section-1.3-1">The following sections are normative: token structure, claims
-definition, DA JWT definition, issuance flows, validation pipeline,
-credential bundle requirements, and IANA registrations.  Deployment
-models, implementation status, and performance characteristics are
-informative.<a href="#section-1.3-1" class="pilcrow">¶</a></p>
-<p id="section-1.3-2">As in the X.509 AIC specification, this document deliberately separates
-cryptographic delegation from authorization semantics: AIC-JWT defines
-the representation and cryptographic binding of authorization-related
-information.  Whether an operation is permitted is determined by
-capability schemes and deployment policy, not by this specification.<a href="#section-1.3-2" class="pilcrow">¶</a></p>
+<p id="section-1.3-1">AIC-JWT is a JWT <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span> profile and does not require OAuth-specific
+processing, an RFC 9068 access-token profile, or token-exchange
+semantics.  An AIC-aware validator applies the additional validation
+rules defined by this document to the AIC-JWT claims.<a href="#section-1.3-1" class="pilcrow">¶</a></p>
+<p id="section-1.3-2">This document defines the JWT carrier mapping of the AIC model
+specified in <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>, together with the OAuth-facing consumption
+constraints needed to present that carrier at existing OAuth 2.0
+endpoints.  The AIC data model -- including delegation modes, capability
+container semantics, permission intersection, and principal/agent role
+definitions -- is defined by the AIC specification <span>[<a href="#AIC" class="cite xref">AIC</a>]</span> and is not
+restated or extended here.<a href="#section-1.3-2" class="pilcrow">¶</a></p>
+<p id="section-1.3-3">Normative content includes token structure, claim definitions, the
+mapping of the AIC data model to JWT claims (Section 5.4), the
+validation pipeline, credential bundle requirements, the OAuth
+consumption profile, and IANA registrations.  Design principles,
+deployment architectures, and performance characteristics are
+informative.<a href="#section-1.3-3" class="pilcrow">¶</a></p>
+<p id="section-1.3-4">Out of scope:<a href="#section-1.3-4" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-1.3-5.1">
+            <p id="section-1.3-5.1.1">authorization semantics and policy evaluation -- this document does
+not define or modify how capabilities, grants, or authorization
+constraints are evaluated; those semantics are defined by <span>[<a href="#AIC" class="cite xref">AIC</a>]</span> and
+deployment policy;<a href="#section-1.3-5.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.3-5.2">
+            <p id="section-1.3-5.2.1">obligations, PDP behavior, or any mechanism that changes the scopes
+or the authority of an issued token after issuance;<a href="#section-1.3-5.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.3-5.3">
+            <p id="section-1.3-5.3.1">semantic equivalence between capabilities expressed in different
+vocabularies or across service domains;<a href="#section-1.3-5.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.3-5.4">
+            <p id="section-1.3-5.4.1">new OAuth 2.0 flows or protocols: AIC-JWT is consumed through the
+existing <span>[<a href="#RFC7523" class="cite xref">RFC7523</a>]</span> JWT bearer grant mechanism.  Integration with
+<span>[<a href="#RFC8693" class="cite xref">RFC8693</a>]</span>, DPoP <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>, Token Status Lists <span>[<a href="#TSL" class="cite xref">TSL</a>]</span>, or <span>[<a href="#RFC9068" class="cite xref">RFC9068</a>]</span>
+access tokens is deployment-specific and outside this specification.<a href="#section-1.3-5.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
 </section>
 </div>
 <div id="requirements-language">
@@ -1782,25 +1849,29 @@ addition:<a href="#section-1.5-1" class="pilcrow">¶</a></p>
           <dt id="section-1.5-2.1">AIC-JWT:</dt>
           <dd style="margin-left: 1.5em" id="section-1.5-2.2">
   The outer JWT defined by this specification (<code>typ=aic+jwt</code>), signed by
-a CA or an OAuth authorization server.<a href="#section-1.5-2.2" class="pilcrow">¶</a>
+the configured AIC issuer.<a href="#section-1.5-2.2" class="pilcrow">¶</a>
 </dd>
           <dd class="break"></dd>
 <dt id="section-1.5-2.3">DA JWT:</dt>
           <dd style="margin-left: 1.5em" id="section-1.5-2.4">
-  The inner JWT (<code>typ=aic+da+jwt</code>) signed by the principal, the JSON
-equivalent of DelegationAuthorization / DelegationAuthTBS.<a href="#section-1.5-2.4" class="pilcrow">¶</a>
+  The inner JWT (<code>typ=aic+da+jwt</code>) signed by the principal, carrying
+the principal-signed delegation authorization content defined by
+<span>[<a href="#AIC" class="cite xref">AIC</a>]</span>.<a href="#section-1.5-2.4" class="pilcrow">¶</a>
 </dd>
           <dd class="break"></dd>
 <dt id="section-1.5-2.5">PA JWT:</dt>
           <dd style="margin-left: 1.5em" id="section-1.5-2.6">
-  An optional companion JWT (<code>typ=aic+pa+jwt</code>) carrying the JSON
-equivalent of the PrincipalAuthorization extension.<a href="#section-1.5-2.6" class="pilcrow">¶</a>
+  An optional companion JWT (<code>typ=aic+pa+jwt</code>) carrying the
+application-layer representation of the PrincipalAuthorization
+extension defined by <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>.  When present, it is part of the
+credential bundle and is not itself the outer AIC-JWT.<a href="#section-1.5-2.6" class="pilcrow">¶</a>
 </dd>
           <dd class="break"></dd>
 <dt id="section-1.5-2.7">Issuer:</dt>
           <dd style="margin-left: 1.5em" id="section-1.5-2.8">
-  The entity that signs the outer AIC-JWT.  It is either a CA (PKI
-mode) or an OAuth authorization server (AS mode).<a href="#section-1.5-2.8" class="pilcrow">¶</a>
+  The entity that signs the outer AIC-JWT.  In PKI deployments, the
+issuer is a CA or other configured PKI issuer; in OAuth deployments,
+it is an authorization server (AS).<a href="#section-1.5-2.8" class="pilcrow">¶</a>
 </dd>
           <dd class="break"></dd>
 <dt id="section-1.5-2.9">Audit actor vs. OAuth actor:</dt>
@@ -1808,7 +1879,8 @@ mode) or an OAuth authorization server (AS mode).<a href="#section-1.5-2.8" clas
   The audit actor recorded per Section 8.1 is the principal in
 <code>representative</code> mode (the agent is the executor).  This is distinct
 from the RFC 8693 <code>act</code> claim (Section 5.1.1), which names the
-executing agent on tokens whose <code>sub</code> is the resource owner.<a href="#section-1.5-2.10" class="pilcrow">¶</a>
+executing agent on tokens whose <code>sub</code> is the resource owner.  The
+terms "audit actor" and OAuth <code>act</code> are not semantically equivalent.<a href="#section-1.5-2.10" class="pilcrow">¶</a>
 </dd>
         <dd class="break"></dd>
 </dl>
@@ -1820,24 +1892,32 @@ executing agent on tokens whose <code>sub</code> is the resource owner.<a href="
 <a href="#section-1.6" class="section-number selfRef">1.6. </a><a href="#name-related-work" class="section-name selfRef">Related Work</a>
         </h3>
 <p id="section-1.6-1"><span>[<a href="#DAAP" class="cite xref">DAAP</a>]</span> (<code>draft-mishra-oauth-agent-grants</code>) defines a delegated agent
-authorization protocol with DID-based agent identity, JWT grant tokens,
-and online verification.  AIC-JWT differs in that identity is anchored
-to a PKI/AS trust root, and the principal's consent is a nested
-principal-signed JWT covered by the issuer signature.  Principal key
-resolution is online by default (JWKS) or, in PKI deployments, via the
-optional credential bundle.<a href="#section-1.6-1" class="pilcrow">¶</a></p>
+authorization protocol with DID-based agent identity and JWT grant
+tokens.  AIC-JWT differs in architecture: identity is anchored to a
+PKI/AS trust root, and the principal's consent is carried as a nested
+principal-signed DA JWT covered by the issuer signature, rather than
+as a standalone grant produced by a delegated-agent flow.  Principal
+public key resolution may use JWKS in OAuth deployments or a
+credential bundle in PKI deployments; the trust model is defined by
+the validation rules of this specification.<a href="#section-1.6-1" class="pilcrow">¶</a></p>
 <p id="section-1.6-2"><span>[<a href="#OBO" class="cite xref">OBO</a>]</span> (<code>draft-oauth-ai-agents-on-behalf-of-user</code>) extends OAuth 2.0
 flows with <code>requested_actor</code> and <code>actor_token</code> parameters.  AIC-JWT is a
 token format that can be produced by such flows.<a href="#section-1.6-2" class="pilcrow">¶</a></p>
-<p id="section-1.6-3"><span>[<a href="#WIMSE" class="cite xref">WIMSE</a>]</span> (<code>draft-ietf-wimse-s2s-protocol</code>) defines workload identity
-tokens carrying <code>iss</code>, <code>sub</code>, <code>exp</code>, <code>jti</code>, and <code>cnf</code>.  WIMSE tokens
-identify workloads but do not carry authorization semantics; AIC-JWT
-adds the AIC authorization model on top of the same JOSE primitives.<a href="#section-1.6-3" class="pilcrow">¶</a></p>
-<p id="section-1.6-4"><span>[<a href="#ATN" class="cite xref">ATN</a>]</span>, <span>[<a href="#PEDIGREE" class="cite xref">PEDIGREE</a>]</span>, and <span>[<a href="#HDP" class="cite xref">HDP</a>]</span> carry delegation information in
-application-layer JWS/DID documents but rely on online discovery or
-flat scope representations.  AIC-JWT keeps the structured capability
-container, the nested principal signature, and authorization
-constraints of AIC.<a href="#section-1.6-4" class="pilcrow">¶</a></p>
+<p id="section-1.6-3">The WIMSE working group separates workload identifiers
+(draft-ietf-wimse-identifier) from workload credentials (X.509 WIC
+and JWT WIT forms; draft-ietf-wimse-workload-creds).  These documents
+identify workloads and do not carry delegation or authorization data.
+AIC-JWT is the JWT mapping of the AIC model defined in <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>; it
+composes with WIMSE/SPIFFE workload identities at the credential
+layer, and it does not add authorization semantics of its own.  In
+this composition, WIMSE/SPIFFE identifies the workload; AIC expresses
+what that agent is authorized to do and by whom.<a href="#section-1.6-3" class="pilcrow">¶</a></p>
+<p id="section-1.6-4">Other delegation-oriented application-layer credential formats,
+including <span>[<a href="#ATN" class="cite xref">ATN</a>]</span>, <span>[<a href="#PEDIGREE" class="cite xref">PEDIGREE</a>]</span>, and <span>[<a href="#HDP" class="cite xref">HDP</a>]</span>, explore related mechanisms for
+representing delegation and provenance.  AIC-JWT instead defines the
+JWT representation of the AIC model specified in <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>, including its
+structured capability container, nested principal authorization, and
+authorization constraints.<a href="#section-1.6-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -1848,45 +1928,58 @@ constraints of AIC.<a href="#section-1.6-4" class="pilcrow">¶</a></p>
 <a href="#section-2" class="section-number selfRef">2. </a><a href="#name-design-principles" class="section-name selfRef">Design Principles</a>
       </h2>
 <p id="section-2-1">This specification is guided by five orthogonal principles, carried
-over from the X.509 AIC specification:<a href="#section-2-1" class="pilcrow">¶</a></p>
+over from the AIC specification <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>:<a href="#section-2-1" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="section-2-2">
 <li id="section-2-2.1">
-          <p id="section-2-2.1.1"><strong>Two-layer signature nesting.</strong>  The principal signs the DA JWT;
-the issuer signs the outer AIC-JWT covering the complete payload
-including the DA JWT.  Neither party can modify the authorization
-content unilaterally.  A compromised CA/AS cannot forge a
-principal-signed DA; a compromised principal key cannot mint a
-valid outer token.<a href="#section-2-2.1.1" class="pilcrow">¶</a></p>
+          <p id="section-2-2.1.1"><strong>Two-layer signature nesting.</strong>  The principal signs the DA JWT,
+which carries the delegated authorization defined by <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>.  The
+issuer then signs the outer AIC-JWT, covering the complete payload
+including the DA JWT.  The principal's delegation authorization
+therefore cannot be modified by the issuer without invalidating the
+principal signature, and a principal key alone cannot mint a valid
+outer AIC-JWT.  Where the AIC profile binds the delegated
+authorization to the Agent key within the DA, that binding is
+covered by the principal signature as well; otherwise the outer
+token's <code>cnf</code> claim binds the presenting Agent key at consumption
+time.<a href="#section-2-2.1.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-2-2.2">
           <p id="section-2-2.2.1"><strong>One container, three contexts.</strong>  The Capability structure
 (<code>schemeId</code>/<code>capabilityId</code>/<code>parameters</code>) is reused in
 <code>aic.capabilities</code>, <code>aic.constraints</code>, and <code>grants</code> of the PA JWT.
-Gateways route evaluation by <code>schemeId</code> to scheme-specific plugins;
-the certificate format stays frozen while semantics evolve through
-registries.<a href="#section-2-2.2.1" class="pilcrow">¶</a></p>
+Each occurrence has the semantic role defined by <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>; reuse of the
+container does not imply semantic equivalence.  Gateways route
+evaluation by <code>schemeId</code> to scheme-specific processing, allowing
+capability semantics to evolve through their respective registries
+without changing the AIC-JWT container.<a href="#section-2-2.2.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-2-2.3">
-          <p id="section-2-2.3.1"><strong>Online-first, OAuth-native verification.</strong>  Verification follows
-standard OAuth/JOSE practice: issuer keys come from JWKS (optionally
-cached), token status from Token Status Lists <span>[<a href="#TSL" class="cite xref">TSL</a>]</span>, and sender binding
-from <code>cnf</code>/DPoP.  Offline self-contained verification is NOT a
-design goal of the JSON profile; it is the domain of the X.509 AIC
-(mTLS) profile.<a href="#section-2-2.3.1" class="pilcrow">¶</a></p>
+          <p id="section-2-2.3.1"><strong>Application-layer, JWT-native verification.</strong>  AIC-JWT uses
+standard JWT and JOSE mechanisms for cryptographic verification.
+Key discovery, credential status, and sender-constraining mechanisms
+such as JWKS, Token Status Lists <span>[<a href="#TSL" class="cite xref">TSL</a>]</span>, and DPoP <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span> MAY be
+used according to deployment requirements; they are deployment-
+specific and are not intrinsic to the AIC-JWT representation.
+Fully self-contained offline verification is a deployment property
+of the X.509 AIC profile and its credential bundle.<a href="#section-2-2.3.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-2-2.4">
           <p id="section-2-2.4.1"><strong>Delegation mode as a cryptographically bound field.</strong>
-            <code>delegation_mode</code> distinguishes <code>authorized</code> (agent acts in its own
-name) from <code>representative</code> (agent acts in the principal's name),
-with different runtime checks and audit semantics, exactly as in
-the X.509 profile.<a href="#section-2-2.4.1" class="pilcrow">¶</a></p>
+            <code>delegation_mode</code> distinguishes <code>authorized</code> (the Agent acts in its
+own name) from <code>representative</code> (the Agent acts in the principal's
+name), with the corresponding runtime and audit semantics defined
+by <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>.  AIC-JWT carries this distinction without redefining it.<a href="#section-2-2.4.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-2-2.5">
-          <p id="section-2-2.5.1"><strong>OAuth alignment.</strong>  Standard JOSE and OAuth primitives are reused
-wherever possible: <code>iss</code>/<code>sub</code>/<code>aud</code>/<code>iat</code>/<code>exp</code>/<code>jti</code> claims,
-<code>cnf</code> (RFC 7800), DPoP (RFC 9449), Rich Authorization Requests
-(RFC 9396), token exchange <span>[<a href="#RFC8693" class="cite xref">RFC8693</a>]</span>, JWT assertions <span>[<a href="#RFC7523" class="cite xref">RFC7523</a>]</span>,
-and Token Status Lists <span>[<a href="#TSL" class="cite xref">TSL</a>]</span>.<a href="#section-2-2.5.1" class="pilcrow">¶</a></p>
+          <p id="section-2-2.5.1"><strong>Protocol interoperability.</strong>  AIC-JWT uses standard JWT and JOSE
+mechanisms and defines a thin OAuth 2.0 consumption profile.  Standard
+claims such as <code>iss</code>, <code>sub</code>, <code>aud</code>, <code>iat</code>, <code>exp</code>, and <code>jti</code>, together
+with <code>cnf</code> <span>[<a href="#RFC7800" class="cite xref">RFC7800</a>]</span>, are used where required by the AIC-JWT
+representation.  The OAuth profile uses the existing <span>[<a href="#RFC7523" class="cite xref">RFC7523</a>]</span> JWT
+bearer grant mechanism.  Integration with DPoP <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>, Rich
+Authorization Requests <span>[<a href="#RFC9396" class="cite xref">RFC9396</a>]</span>, token exchange <span>[<a href="#RFC8693" class="cite xref">RFC8693</a>]</span>, Token
+Status Lists <span>[<a href="#TSL" class="cite xref">TSL</a>]</span>, and RFC 9068 access tokens is deployment-specific
+and outside the core AIC-JWT specification.<a href="#section-2-2.5.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
 </section>
@@ -1906,32 +1999,40 @@ and Token Status Lists <span>[<a href="#TSL" class="cite xref">TSL</a>]</span>.<
 <li class="normal" id="section-3.1-2.1">
             <p id="section-3.1-2.1.1"><strong>Principal</strong>: the natural person or organization that signs the DA
 JWT.  The principal's public key is identified by
-<code>aic.principal.key_hash</code>.  In <code>representative</code> mode the principal is
-the resource owner and is the subject (<code>sub</code>) of the DA and of the
-issued token; a deployment whose accountable operator differs from
-the resource owner MUST represent that operator separately and MUST
-NOT place it in the grant subject (Section 10.2).<a href="#section-3.1-2.1.1" class="pilcrow">¶</a></p>
+<code>aic.principal.key_hash</code>.  In <code>representative</code> mode, the Principal is
+projected as the OAuth resource owner and is the subject (<code>sub</code>) of
+the DA and, where applicable, of the issued token; a deployment whose
+accountable operator differs from the resource owner MUST represent
+that operator separately and MUST NOT place it in the grant subject
+(Section 10.2).<a href="#section-3.1-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-3.1-2.2">
-            <p id="section-3.1-2.2.1"><strong>Agent</strong>: the AI agent presenting the token.  The agent key is
-bound by <code>cnf</code>.  In <code>representative</code> mode the agent is the OAuth
-actor/client (<code>act</code> / <code>client_id</code>), not the subject; in <code>authorized</code>
-mode the agent MAY be the subject (<code>sub</code>) as the authorized accessor
-(RFC 7523 Section 3, item 2A).<a href="#section-3.1-2.2.1" class="pilcrow">¶</a></p>
+            <p id="section-3.1-2.2.1"><strong>Agent</strong>: the AI agent presenting the token.  The Agent key is bound
+by <code>cnf</code> at presentation time.  In <code>representative</code> mode, the Agent
+is projected as the OAuth actor and MAY also be the OAuth client
+presenting the credential; in <code>authorized</code> mode, the Agent MAY
+occupy <code>sub</code> as the authorized accessor, consistent with the
+authorization-grant semantics of RFC 7523 Section 3, item 2A.<a href="#section-3.1-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-3.1-2.3">
             <p id="section-3.1-2.3.1"><strong>Issuer</strong>: the CA (PKI mode) or OAuth authorization server (AS
-mode) that validates the DA JWT and signs the outer AIC-JWT.<a href="#section-3.1-2.3.1" class="pilcrow">¶</a></p>
+mode) that validates the DA JWT and signs the outer AIC-JWT.  The
+Principal is not the issuer of the outer AIC-JWT; the Principal
+signs only the DA JWT.<a href="#section-3.1-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-3.1-2.4">
             <p id="section-3.1-2.4.1"><strong>Verifier/Gateway</strong>: the policy enforcement point that validates
-the token and makes the access decision.<a href="#section-3.1-2.4.1" class="pilcrow">¶</a></p>
+the AIC-JWT and its credential bundle and makes the access decision
+according to <span>[<a href="#AIC" class="cite xref">AIC</a>]</span> and deployment policy.<a href="#section-3.1-2.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-3.1-3">The issuer's public key comes from configured JWKS/<code>x5c</code> material
-(optionally cached).  The principal's public key comes either from an
-online JWKS or, in PKI deployments, from the credential bundle
-presented with the token.<a href="#section-3.1-3" class="pilcrow">¶</a></p>
+<p id="section-3.1-3">The issuer's verification key is obtained from configured or otherwise
+trusted JWKS/<code>x5c</code> material and MAY be cached.  The principal's
+verification key is resolved from trusted JWKS material or, in PKI
+deployments, from the credential bundle presented with the token.  Key
+resolution does not by itself establish trust; the trust relationship
+for the resolved key MUST be established by the deployment before the
+DA is accepted.<a href="#section-3.1-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="relationship-to-oauth-20-roles">
@@ -1944,39 +2045,49 @@ presented with the token.<a href="#section-3.1-3" class="pilcrow">¶</a></p>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">AIC-JWT role</th>
-              <th class="text-left" rowspan="1" colspan="1">OAuth 2.0 role</th>
+              <th class="text-left" rowspan="1" colspan="1">OAuth projection</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">Principal</td>
-              <td class="text-left" rowspan="1" colspan="1">Resource Owner / subject</td>
+              <td class="text-left" rowspan="1" colspan="1">Resource Owner / <code>sub</code> in <code>representative</code> mode</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">Agent</td>
-              <td class="text-left" rowspan="1" colspan="1">Client / actor</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>sub</code> in <code>authorized</code> mode; <code>act</code> in <code>representative</code> mode; MAY also be the OAuth client</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">Issuer (AS mode)</td>
-              <td class="text-left" rowspan="1" colspan="1">Authorization Server</td>
+              <td class="text-left" rowspan="1" colspan="1">Issuer</td>
+              <td class="text-left" rowspan="1" colspan="1">Authorization Server in AS mode</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">Verifier/Gateway</td>
-              <td class="text-left" rowspan="1" colspan="1">Resource Server</td>
+              <td class="text-left" rowspan="1" colspan="1">Resource Server / policy enforcement point</td>
             </tr>
           </tbody>
         </table>
-<p id="section-3.2-2">Role placement is mode-dependent.  In <code>representative</code> mode the
-resource owner / principal is the subject (<code>sub</code>) of the DA and of the
-issued token and the agent is the RFC 8693 actor (<code>act</code>) / OAuth
-client; in <code>authorized</code> mode the agent occupies <code>sub</code> as the
-authorized accessor (RFC 7523 Section 3, item 2A), with the principal
-as the signing issuer.  The AIC-JWT can serve as an access token
-(RFC 9068-style), an assertion <span>[<a href="#RFC7523" class="cite xref">RFC7523</a>]</span>, or the output of a token
-exchange <span>[<a href="#RFC8693" class="cite xref">RFC8693</a>]</span>.<a href="#section-3.2-2" class="pilcrow">¶</a></p>
-<p id="section-3.2-3">The OAuth <code>act</code> claim names the executing agent; it is distinct from
-the audit actor of Section 8.1 (the principal, in <code>representative</code>
-mode).<a href="#section-3.2-3" class="pilcrow">¶</a></p>
+<p id="section-3.2-2">In <code>representative</code> mode, the Principal is projected as the resource
+owner and the Agent as the OAuth actor; the Agent MAY also be the
+OAuth client presenting the credential.  In <code>authorized</code> mode, the
+Agent is the authorized accessor and MAY occupy <code>sub</code>, consistent with
+the RFC 7523 authorization-grant semantics (Section 3, item 2A).  RFC
+7523 distinguishes this authorization-grant use from client
+authentication, for which <code>sub</code> identifies the OAuth client.<a href="#section-3.2-2" class="pilcrow">¶</a></p>
+<p id="section-3.2-3">AIC-JWT is a self-contained credential: the authorization claims and the
+principal-signed DA travel inside the token.  Self-containment of the
+credential does not imply offline self-contained verification
+(Section 9.3).  This document does not define an RFC 9068 access-token
+profile and does not modify RFC 8693.
+Deployments MAY present AIC-JWT within existing OAuth flows (for
+example, the DA as an RFC 7523 authorization grant) where their
+deployment profile permits; conformance of such presentations to RFC
+9068 or RFC 8693 is outside this specification.<a href="#section-3.2-3" class="pilcrow">¶</a></p>
+<p id="section-3.2-4">The OAuth <code>act</code> claim identifies the executing Agent in the
+<code>representative</code> projection; it is distinct from the audit actor
+defined in Section 8.1, which identifies the Principal represented by
+the Agent in <code>representative</code> mode.<a href="#section-3.2-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="relationship-to-mtls">
@@ -1984,15 +2095,16 @@ mode).<a href="#section-3.2-3" class="pilcrow">¶</a></p>
         <h3 id="name-relationship-to-mtls">
 <a href="#section-3.3" class="section-number selfRef">3.3. </a><a href="#name-relationship-to-mtls" class="section-name selfRef">Relationship to mTLS</a>
         </h3>
-<p id="section-3.3-1">AIC-JWT does not require mutual TLS (mTLS).  Sender binding is provided
-at the application layer by the <code>cnf</code> claim (Section 5.1.1) and MAY be
-strengthened with DPoP <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>.  Where a deployment uses mTLS, the
-verifier MAY additionally check that the mTLS client certificate key
-corresponds to <code>cnf</code> (for example, by comparing the JWK thumbprint of
-the certificate public key with the <code>jkt</code> member).  Whether and how
-mTLS is deployed is a deployment decision and outside the scope of this
-specification; in particular, offline handshake-time decisions remain
-the domain of the X.509 AIC (mTLS) profile.<a href="#section-3.3-1" class="pilcrow">¶</a></p>
+<p id="section-3.3-1">AIC-JWT does not require mutual TLS (mTLS).  Sender binding MAY be
+enforced at the application layer using the <code>cnf</code> claim (Section
+5.1.1) and, where applicable, DPoP <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span>.  Where a deployment uses
+mTLS, the verifier MAY additionally check that the mTLS client
+certificate public key corresponds to the key identified by <code>cnf</code>, for
+example by comparing the JWK thumbprint of the certificate public key
+with the <code>jkt</code> member.  Whether and how mTLS is deployed is a
+deployment decision and outside the scope of this specification; in
+particular, offline handshake-time decisions remain the domain of the
+X.509 AIC (mTLS) profile.<a href="#section-3.3-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2007,7 +2119,10 @@ the domain of the X.509 AIC (mTLS) profile.<a href="#section-3.3-1" class="pilcr
         <h3 id="name-nested-jws-construction">
 <a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-nested-jws-construction" class="section-name selfRef">Nested JWS Construction</a>
         </h3>
-<p id="section-4.1-1">The AIC-JWT is a nested JWS per Section 5.2 of <span>[<a href="#RFC7515" class="cite xref">RFC7515</a>]</span>:<a href="#section-4.1-1" class="pilcrow">¶</a></p>
+<p id="section-4.1-1">The AIC-JWT is a nested JWT in which the inner Delegation
+Authorization (DA) JWT is carried as a claim value in an outer JWS.
+The nested JWT model is defined by <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>, and the signatures use
+the JWS mechanisms defined by <span>[<a href="#RFC7515" class="cite xref">RFC7515</a>]</span>.<a href="#section-4.1-1" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="section-4.1-2">
 <li id="section-4.1-2.1">
             <p id="section-4.1-2.1.1">The principal creates the DA JWT (Section 5.2) and signs it with the
@@ -2015,17 +2130,23 @@ principal's private key.<a href="#section-4.1-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-4.1-2.2">
             <p id="section-4.1-2.2.1">The agent or issuer constructs the outer payload (Section 5.1)
-containing the <code>da</code> claim whose value is the complete DA JWT
-string.<a href="#section-4.1-2.2.1" class="pilcrow">¶</a></p>
+containing the <code>da</code> claim whose value is the complete
+compact-serialized DA JWT string.<a href="#section-4.1-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-4.1-2.3">
             <p id="section-4.1-2.3.1">The issuer signs the outer payload, producing the AIC-JWT.<a href="#section-4.1-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
-<p id="section-4.1-3">The outer signature covers the complete inner JWT string.  Any
-modification of the inner token invalidates the outer signature.<a href="#section-4.1-3" class="pilcrow">¶</a></p>
-<p id="section-4.1-4">The AIC-JWT uses the JWS compact serialization.  The inner DA JWT uses
-the JWS compact serialization as well.<a href="#section-4.1-4" class="pilcrow">¶</a></p>
+<p id="section-4.1-3">The outer JWS therefore provides integrity protection over the complete
+DA JWT string as carried in the <code>da</code> claim.  Any modification of the
+inner JWT -- including its JOSE header, payload, or signature -- changes
+the outer payload and causes outer signature verification to fail.<a href="#section-4.1-3" class="pilcrow">¶</a></p>
+<p id="section-4.1-4">The AIC-JWT uses the JWS compact serialization, as does the inner DA
+JWT.<a href="#section-4.1-4" class="pilcrow">¶</a></p>
+<p id="section-4.1-5">The <code>da</code> claim value MUST be processed as the exact compact-serialized
+DA JWT string received in the outer payload.  A verifier MUST NOT
+reconstruct or reserialize the DA JWT before performing inner JWS
+signature verification.<a href="#section-4.1-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="outer-jose-header">
@@ -2036,8 +2157,8 @@ the JWS compact serialization as well.<a href="#section-4.1-4" class="pilcrow">�
 <p id="section-4.2-1">The outer header MUST contain:<a href="#section-4.2-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-4.2-2.1">
-            <p id="section-4.2-2.1.1"><code>alg</code>: a JOSE algorithm from the allowlist in Section 4.5.  The value
-<code>none</code> MUST NOT be used.<a href="#section-4.2-2.1.1" class="pilcrow">¶</a></p>
+            <p id="section-4.2-2.1.1"><code>alg</code>: a JOSE algorithm permitted by Section 4.5.  The value <code>none</code>
+MUST NOT be used.<a href="#section-4.2-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-4.2-2.2">
             <p id="section-4.2-2.2.1"><code>typ</code>: the string <code>aic+jwt</code>.<a href="#section-4.2-2.2.1" class="pilcrow">¶</a></p>
@@ -2047,8 +2168,13 @@ the JWS compact serialization as well.<a href="#section-4.1-4" class="pilcrow">�
 Section 4.1.4.<a href="#section-4.2-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-4.2-3">The outer header SHOULD contain <code>x5c</code> or <code>x5t</code> when the issuer's key is
-an X.509 certificate (PKI mode), to bridge X.509 trust anchors.<a href="#section-4.2-3" class="pilcrow">¶</a></p>
+<p id="section-4.2-3">The outer header MAY contain <code>x5c</code> or <code>x5t</code> when the issuer's signing
+key is represented by an X.509 certificate.  An <code>x5c</code> value MAY provide
+the X.509 certificate chain needed for certificate-based key
+validation; an <code>x5t</code> value identifies an X.509 certificate by its
+thumbprint.  The presence of <code>x5c</code> or <code>x5t</code> MUST NOT by itself
+establish trust; verifiers MUST validate the issuer key against their
+configured trust policy.<a href="#section-4.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="inner-da-jose-header">
@@ -2059,7 +2185,7 @@ an X.509 certificate (PKI mode), to bridge X.509 trust anchors.<a href="#section
 <p id="section-4.3-1">The DA JWT header MUST contain:<a href="#section-4.3-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-4.3-2.1">
-            <p id="section-4.3-2.1.1"><code>alg</code>: a JOSE algorithm from the allowlist in Section 4.5.<a href="#section-4.3-2.1.1" class="pilcrow">¶</a></p>
+            <p id="section-4.3-2.1.1"><code>alg</code>: a JOSE algorithm permitted by Section 4.5.<a href="#section-4.3-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-4.3-2.2">
             <p id="section-4.3-2.2.1"><code>typ</code>: the string <code>aic+da+jwt</code>.<a href="#section-4.3-2.2.1" class="pilcrow">¶</a></p>
@@ -2068,8 +2194,11 @@ an X.509 certificate (PKI mode), to bridge X.509 trust anchors.<a href="#section
             <p id="section-4.3-2.3.1"><code>kid</code>: the identifier of the principal's signing key.<a href="#section-4.3-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-4.3-3">The DA JWT MUST NOT be accepted as a standalone access token; the
-distinct <code>typ</code> value prevents confusion with the outer token.<a href="#section-4.3-3" class="pilcrow">¶</a></p>
+<p id="section-4.3-3">The DA JWT MUST NOT be accepted as a standalone AIC-JWT or access
+token.  Verifiers operating in an AIC-JWT context MUST validate the
+<code>typ</code> value and apply the DA-specific validation rules defined by this
+specification.  The distinct <code>typ</code> value provides explicit JWT typing
+and helps prevent cross-type token confusion.<a href="#section-4.3-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="pa-jose-header">
@@ -2077,19 +2206,26 @@ distinct <code>typ</code> value prevents confusion with the outer token.<a href=
         <h3 id="name-pa-jose-header">
 <a href="#section-4.4" class="section-number selfRef">4.4. </a><a href="#name-pa-jose-header" class="section-name selfRef">PA JOSE Header</a>
         </h3>
-<p id="section-4.4-1">When the optional PA JWT (Section 5.4) is used, its header MUST
+<p id="section-4.4-1">When the optional PA JWT (Section 5.3) is used, its header MUST
 contain:<a href="#section-4.4-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-4.4-2.1">
-            <p id="section-4.4-2.1.1"><code>alg</code>: a JOSE algorithm from the allowlist in Section 4.5.<a href="#section-4.4-2.1.1" class="pilcrow">¶</a></p>
+            <p id="section-4.4-2.1.1"><code>alg</code>: a JOSE algorithm permitted by Section 4.5.<a href="#section-4.4-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-4.4-2.2">
             <p id="section-4.4-2.2.1"><code>typ</code>: the string <code>aic+pa+jwt</code>.<a href="#section-4.4-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-4.4-2.3">
-            <p id="section-4.4-2.3.1"><code>kid</code>: the issuer's signing key identifier.<a href="#section-4.4-2.3.1" class="pilcrow">¶</a></p>
+            <p id="section-4.4-2.3.1"><code>kid</code>: the identifier of the PA signing key.<a href="#section-4.4-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
+<p id="section-4.4-3">In pure-JSON and OAuth deployments, the PA JWT is signed by the issuer
+that attests the principal identity; in the AS mode of Section 10.2
+this is the same issuer that signs the outer AIC-JWT.  In PKI
+deployments the PrincipalAuthorization is carried in the principal's
+X.509 certificate rather than as a PA JWT, and the PA JWT form is not
+used.  Verifiers MUST validate the PA signing key and its trust
+relationship before accepting the PA (Section 5.3).<a href="#section-4.4-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="algorithm-allowlist">
@@ -2114,63 +2250,63 @@ algorithm policy of the X.509 AIC specification:<a href="#section-4.5-1" class="
                 <code>ES256</code>
 </td>
               <td class="text-left" rowspan="1" colspan="1">MUST</td>
-              <td class="text-left" rowspan="1" colspan="1">ecdsa-with-SHA256</td>
+              <td class="text-left" rowspan="1" colspan="1">ECDSA P-256 with SHA-256</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>ES384</code>
 </td>
               <td class="text-left" rowspan="1" colspan="1">MAY</td>
-              <td class="text-left" rowspan="1" colspan="1">ecdsa-with-SHA384</td>
+              <td class="text-left" rowspan="1" colspan="1">ECDSA P-384 with SHA-384</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>ES512</code>
 </td>
               <td class="text-left" rowspan="1" colspan="1">MAY</td>
-              <td class="text-left" rowspan="1" colspan="1">ecdsa-with-SHA512</td>
+              <td class="text-left" rowspan="1" colspan="1">ECDSA P-521 with SHA-512</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>RS256</code>
 </td>
               <td class="text-left" rowspan="1" colspan="1">MUST</td>
-              <td class="text-left" rowspan="1" colspan="1">sha256WithRSAEncryption</td>
+              <td class="text-left" rowspan="1" colspan="1">RSA PKCS#1 v1.5 with SHA-256</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>RS384</code>
 </td>
               <td class="text-left" rowspan="1" colspan="1">MAY</td>
-              <td class="text-left" rowspan="1" colspan="1">sha384WithRSAEncryption</td>
+              <td class="text-left" rowspan="1" colspan="1">RSA PKCS#1 v1.5 with SHA-384</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>RS512</code>
 </td>
               <td class="text-left" rowspan="1" colspan="1">MAY</td>
-              <td class="text-left" rowspan="1" colspan="1">sha512WithRSAEncryption</td>
+              <td class="text-left" rowspan="1" colspan="1">RSA PKCS#1 v1.5 with SHA-512</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>PS256</code>
 </td>
               <td class="text-left" rowspan="1" colspan="1">MAY</td>
-              <td class="text-left" rowspan="1" colspan="1">RSASSA-PSS with SHA-256</td>
+              <td class="text-left" rowspan="1" colspan="1">RSA-PSS with SHA-256</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>PS384</code>
 </td>
               <td class="text-left" rowspan="1" colspan="1">MAY</td>
-              <td class="text-left" rowspan="1" colspan="1">RSASSA-PSS with SHA-384</td>
+              <td class="text-left" rowspan="1" colspan="1">RSA-PSS with SHA-384</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>PS512</code>
 </td>
               <td class="text-left" rowspan="1" colspan="1">MAY</td>
-              <td class="text-left" rowspan="1" colspan="1">RSASSA-PSS with SHA-512</td>
+              <td class="text-left" rowspan="1" colspan="1">RSA-PSS with SHA-512</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
@@ -2180,16 +2316,20 @@ algorithm policy of the X.509 AIC specification:<a href="#section-4.5-1" class="
             </tr>
           </tbody>
         </table>
-<p id="section-4.5-3">The allowlist is the union of the SPIFFE JWT-SVID algorithm set
-(<span>[<a href="#RFC7518" class="cite xref">RFC7518</a>]</span> Sections 3.3-3.5) and EdDSA, so that a token can be
-verified by both JWT-SVID and AIC-JWT validators.  ES256 and RS256 are
-the common MUST-level core shared with RFC 9068 and JWT-SVID;
-interoperable deployments SHOULD use ES256 or RS256.<a href="#section-4.5-3" class="pilcrow">¶</a></p>
-<p id="section-4.5-4">Implementations MUST reject all other algorithms.  Implementations
-MUST follow the JSON Web Algorithm Confusion prevention guidance of
-<span>[<a href="#RFC8725" class="cite xref">RFC8725</a>]</span>: the <code>alg</code> header MUST be validated against the allowlist,
-the <code>kid</code> MUST be resolved to the expected key, and symmetric
-algorithms such as <code>HS256</code> MUST NOT be accepted for AIC-JWT.<a href="#section-4.5-4" class="pilcrow">¶</a></p>
+<p id="section-4.5-3">The allowlist is based on the algorithm set of the SPIFFE JWT-SVID
+specification (<span>[<a href="#RFC7518" class="cite xref">RFC7518</a>]</span> Sections 3.3-3.5), with EdDSA added so that
+tokens can be verified by both JWT-SVID and AIC-JWT validators and by
+Ed25519-based deployments.  Interoperable deployments SHOULD use ES256
+or RS256.<a href="#section-4.5-3" class="pilcrow">¶</a></p>
+<p id="section-4.5-4">Implementations MUST reject all other algorithms, including symmetric
+MAC algorithms such as <code>HS256</code>.  Implementations MUST follow the JWT
+Best Current Practices of <span>[<a href="#RFC8725" class="cite xref">RFC8725</a>]</span>: the <code>alg</code> value MUST be validated
+against the allowlist before signature verification, and the selected
+verification key MUST be compatible with the declared algorithm and key
+type.<a href="#section-4.5-4" class="pilcrow">¶</a></p>
+<p id="section-4.5-5">The <code>kid</code> value is used only to select a candidate verification key
+from a trusted and appropriately scoped key set.  A <code>kid</code> value MUST
+NOT by itself establish trust.<a href="#section-4.5-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2214,8 +2354,9 @@ JWT and OAuth claims.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
           </h4>
 <ul class="normal">
 <li class="normal" id="section-5.1.1-1.1">
-              <p id="section-5.1.1-1.1.1"><code>iss</code> (REQUIRED): the issuer identifier, a URL per <span>[<a href="#RFC9068" class="cite xref">RFC9068</a>]</span> and
-<span>[<a href="#RFC9207" class="cite xref">RFC9207</a>]</span>.<a href="#section-5.1.1-1.1.1" class="pilcrow">¶</a></p>
+              <p id="section-5.1.1-1.1.1"><code>iss</code> (REQUIRED): the issuer identifier per <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span>.  Where the
+token is issued by an OAuth authorization server, the identifier
+SHOULD be a URL unique to that issuer per <span>[<a href="#RFC9207" class="cite xref">RFC9207</a>]</span>.<a href="#section-5.1.1-1.1.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-1.2">
               <p id="section-5.1.1-1.2.1"><code>sub</code> (REQUIRED): mode-dependent.  In <code>authorized</code> mode it is the
@@ -2237,10 +2378,11 @@ be absent in <code>authorized</code> mode.<a href="#section-5.1.1-1.3.1" class="
 </li>
             <li class="normal" id="section-5.1.1-1.4">
               <p id="section-5.1.1-1.4.1"><code>aud</code> (REQUIRED): a string or array of strings identifying the
-intended resource servers or gateways.  Verification follows RFC 9068
-Section 4.  Deployments that base decisions solely on capability
-evaluation MUST still include a deployment-scoped audience to prevent
-audience confusion.<a href="#section-5.1.1-1.4.1" class="pilcrow">¶</a></p>
+intended resource servers or gateways.  Verification follows
+<span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span> audience semantics and the deployment's audience policy.
+Deployments that base decisions solely on capability evaluation MUST
+still include a deployment-scoped audience to prevent audience
+confusion.<a href="#section-5.1.1-1.4.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-1.5">
               <p id="section-5.1.1-1.5.1"><code>iat</code> (REQUIRED): NumericDate of issuance.<a href="#section-5.1.1-1.5.1" class="pilcrow">¶</a></p>
@@ -2260,8 +2402,10 @@ accepted.<a href="#section-5.1.1-1.7.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-1.8">
               <p id="section-5.1.1-1.8.1"><code>jti</code> (REQUIRED): a unique token identifier used for replay
-prevention and status lists.  When a DA JWT is present, <code>jti</code> MUST
-equal the DA <code>nonce</code> (carried in the DA as <code>jti</code>).<a href="#section-5.1.1-1.8.1" class="pilcrow">¶</a></p>
+prevention and status lists.  This profile uses a one-DA-per-issued-
+token model: when a DA JWT is present, <code>jti</code> MUST equal the DA
+<code>nonce</code> (carried in the DA as <code>jti</code>), the nonce is consumed at first
+issuance, and it MUST NOT be reused for a second outer token.<a href="#section-5.1.1-1.8.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-1.9">
               <p id="section-5.1.1-1.9.1"><code>cnf</code> (REQUIRED): a confirmation claim per <span>[<a href="#RFC7800" class="cite xref">RFC7800</a>]</span> binding the
@@ -2269,7 +2413,12 @@ token to the Agent's proof-of-possession key.  The <code>jkt</code> member
 (<span>[<a href="#RFC7638" class="cite xref">RFC7638</a>]</span> thumbprint) is RECOMMENDED.  When DPoP <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span> is used,
 the <code>jkt</code> member MUST match the DPoP proof key thumbprint.  Where a
 deployment uses mTLS, the verifier MAY cross-check the mTLS client
-certificate key against <code>cnf</code> (Section 3.3).<a href="#section-5.1.1-1.9.1" class="pilcrow">¶</a></p>
+certificate key against <code>cnf</code> (Section 3.3).  In this revision the
+principal-signed DA binds the delegated authorization to the Agent
+identity (<code>agent_id</code>); a DA-level binding of the Agent key
+(requiring the key identified by <code>cnf</code> to match a DA agent-key
+binding) is reserved for a future DA claim-set revision aligned with
+the X.509 AIC DA v2.<a href="#section-5.1.1-1.9.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-1.10">
               <p id="section-5.1.1-1.10.1"><code>scope</code> (OPTIONAL): an OAuth scope string projection of the
@@ -2278,8 +2427,8 @@ servers.  The <code>aic.capabilities</code> claim remains the canonical
 authorization input.<a href="#section-5.1.1-1.10.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-1.11">
-              <p id="section-5.1.1-1.11.1"><code>client_id</code> (OPTIONAL): the OAuth client identifier in AS mode,
-per RFC 9068.<a href="#section-5.1.1-1.11.1" class="pilcrow">¶</a></p>
+              <p id="section-5.1.1-1.11.1"><code>client_id</code> (OPTIONAL): the OAuth client identifier, present when
+the token is issued in OAuth AS mode.<a href="#section-5.1.1-1.11.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-1.12">
               <p id="section-5.1.1-1.12.1"><code>status</code> (OPTIONAL): a Token Status List reference per
@@ -2388,19 +2537,21 @@ is <code>authorized</code>, risk is low, and the deployment does not require
 principal non-repudiation.<a href="#section-5.1.3-1" class="pilcrow">¶</a></p>
 <p id="section-5.1.3-2">When present, the verifier MUST validate the DA JWT and MUST check
 consistency between the DA JWT payload and the outer <code>aic</code> claim
-(Section 13).<a href="#section-5.1.3-2" class="pilcrow">¶</a></p>
+(Section 11).<a href="#section-5.1.3-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
 </div>
-<div id="da-jwt-payload-delegationauthtbs-equivalent">
+<div id="da-jwt-payload">
 <section id="section-5.2">
-        <h3 id="name-da-jwt-payload-delegationau">
-<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-da-jwt-payload-delegationau" class="section-name selfRef">DA JWT Payload (DelegationAuthTBS Equivalent)</a>
+        <h3 id="name-da-jwt-payload">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-da-jwt-payload" class="section-name selfRef">DA JWT Payload</a>
         </h3>
-<p id="section-5.2-1">The DA JWT payload is the JSON equivalent of DelegationAuthTBS.  In
-addition to the AIC members below, every DA JWT MUST carry the RFC 7523
-claims <code>iss</code>, <code>sub</code>, <code>aud</code>, <code>exp</code> and <code>jti</code>:<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.2-1">The DA JWT payload carries the principal-signed delegation
+authorization content defined by <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>; it is the JWT counterpart of
+the X.509 DelegationAuthTBS signing structure, not a byte-level
+encoding of it.  In addition to the AIC members below, every DA JWT
+MUST carry the RFC 7523 claims <code>iss</code>, <code>sub</code>, <code>aud</code>, <code>exp</code> and <code>jti</code>:<a href="#section-5.2-1" class="pilcrow">¶</a></p>
 <p id="section-5.2-2"><code>
 {
   "ver": 2,
@@ -2428,7 +2579,9 @@ claims <code>iss</code>, <code>sub</code>, <code>aud</code>, <code>exp</code> an
 <li class="normal" id="section-5.2-3.1">
             <p id="section-5.2-3.1.1"><code>ver</code> (REQUIRED): 2.  <code>ver=2</code> is the DA claim set defined by this
 revision (-01); <code>ver=1</code> is the -00 claim set and MUST be rejected by
--01 implementations (fail closed rather than silently downgraded).<a href="#section-5.2-3.1.1" class="pilcrow">¶</a></p>
+-01 implementations (fail closed rather than silently downgraded).
+<code>da.ver</code> is the DA claim-set version and is distinct from <code>aic.ver</code>
+(the AIC-JWT profile version).<a href="#section-5.2-3.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-5.2-3.2">
             <p id="section-5.2-3.2.1"><code>iss</code> (REQUIRED): the principal identifier <code>realm:id</code>; MUST equal
@@ -2460,7 +2613,10 @@ it MUST equal the outer <code>sub</code>; in <code>representative</code> mode it
 equal the outer <code>act.sub</code> and the OAuth <code>client_id</code>.<a href="#section-5.2-3.8.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-5.2-3.9">
-            <p id="section-5.2-3.9.1"><code>principal</code> (REQUIRED): MUST equal the outer <code>aic.principal</code>.<a href="#section-5.2-3.9.1" class="pilcrow">¶</a></p>
+            <p id="section-5.2-3.9.1"><code>principal</code> (REQUIRED): MUST equal the outer <code>aic.principal</code>.  The
+key used to verify the DA JWT signature MUST correspond to the
+principal key identified by <code>principal.key_hash</code> and
+<code>principal.hash_alg</code>.<a href="#section-5.2-3.9.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-5.2-3.10">
             <p id="section-5.2-3.10.1"><code>reason</code> (REQUIRED): <code>code</code> (1 to 64 characters, controlled
@@ -2485,9 +2641,9 @@ vocabulary, e.g., <code>SCHEDULED_MAINTENANCE</code>, <code>AUTO_RENEWAL</code>,
             <p id="section-5.2-3.15.1"><code>ts</code> (REQUIRED): NumericDate of the principal's signature.<a href="#section-5.2-3.15.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-5.2-3.16">
-            <p id="section-5.2-3.16.1"><code>nonce</code> (REQUIRED): base64url encoding of 32 bytes from a CSPRNG,
-used for replay prevention.  The issuer MUST check uniqueness and
-persist used nonces.<a href="#section-5.2-3.16.1" class="pilcrow">¶</a></p>
+            <p id="section-5.2-3.16.1"><code>nonce</code> (REQUIRED): the unpadded base64url encoding of exactly 32
+octets from a CSPRNG, used for replay prevention.  The issuer MUST
+check uniqueness and persist used nonces.<a href="#section-5.2-3.16.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 <p id="section-5.2-4">The signing input is the UTF-8 encoding of the JWS payload as defined
@@ -2496,16 +2652,22 @@ order in the signed payload is the order produced by the JWS
 serialization and MUST be preserved as signed).<a href="#section-5.2-4" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="pa-jwt-payload-principalauthorization-equivalent">
+<div id="pa-jwt-payload">
 <section id="section-5.3">
-        <h3 id="name-pa-jwt-payload-principalaut">
-<a href="#section-5.3" class="section-number selfRef">5.3. </a><a href="#name-pa-jwt-payload-principalaut" class="section-name selfRef">PA JWT Payload (PrincipalAuthorization Equivalent)</a>
+        <h3 id="name-pa-jwt-payload">
+<a href="#section-5.3" class="section-number selfRef">5.3. </a><a href="#name-pa-jwt-payload" class="section-name selfRef">PA JWT Payload</a>
         </h3>
-<p id="section-5.3-1">The optional PA JWT carries the JSON equivalent of the
-PrincipalAuthorization extension.  It is REQUIRED in
+<p id="section-5.3-1">The optional PA JWT carries the JSON representation of the
+PrincipalAuthorization extension defined by <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>.  It is REQUIRED in
 <code>representative</code> mode when no principal X.509 certificate with the
-PrincipalAuthorization extension is present in the bundle:<a href="#section-5.3-1" class="pilcrow">¶</a></p>
-<p id="section-5.3-2"><code>
+PrincipalAuthorization extension is present in the bundle.<a href="#section-5.3-1" class="pilcrow">¶</a></p>
+<p id="section-5.3-2">In pure-JSON and OAuth deployments, the PA JWT MUST be signed by the
+issuer that attests the principal identity; in the AS mode of Section
+10.2 this is the same issuer that signs the outer AIC-JWT, and the PA
+JOSE header <code>kid</code> (Section 4.4) identifies that signing key.  In PKI
+deployments the PrincipalAuthorization is carried in the principal's
+X.509 certificate, and the PA JWT form is not used:<a href="#section-5.3-2" class="pilcrow">¶</a></p>
+<p id="section-5.3-3"><code>
 {
   "ver": 1,
   "principal": { ... same structure as aic.principal ... },
@@ -2518,31 +2680,31 @@ PrincipalAuthorization extension is present in the bundle:<a href="#section-5.3-
   },
   "extensions": { ... }
 }
-</code><a href="#section-5.3-2" class="pilcrow">¶</a></p>
+</code><a href="#section-5.3-3" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-5.3-3.1">
-            <p id="section-5.3-3.1.1"><code>principal</code> (REQUIRED): the principal to which the PA JWT belongs.<a href="#section-5.3-3.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-5.3-4.1">
+            <p id="section-5.3-4.1.1"><code>principal</code> (REQUIRED): the principal to which the PA JWT belongs.<a href="#section-5.3-4.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-5.3-3.2">
-            <p id="section-5.3-3.2.1"><code>grants</code> (REQUIRED, 0 to 256 entries): the principal's capability
-grants; the upper bound <code>P_grants</code>.<a href="#section-5.3-3.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-5.3-4.2">
+            <p id="section-5.3-4.2.1"><code>grants</code> (REQUIRED, 0 to 256 entries): the principal's capability
+grants; the upper bound <code>P_grants</code>.<a href="#section-5.3-4.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-5.3-3.3">
-            <p id="section-5.3-3.3.1"><code>constraints</code> (OPTIONAL): principal-level authorization boundary
-constraints, evaluated independently from <code>aic.constraints</code>.<a href="#section-5.3-3.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-5.3-4.3">
+            <p id="section-5.3-4.3.1"><code>constraints</code> (OPTIONAL): principal-level authorization boundary
+constraints, evaluated independently from <code>aic.constraints</code>.<a href="#section-5.3-4.3.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-5.3-3.4">
-            <p id="section-5.3-3.4.1"><code>delegation_policy</code> (OPTIONAL): <code>max_agents</code> (default 1),
+          <li class="normal" id="section-5.3-4.4">
+            <p id="section-5.3-4.4.1"><code>delegation_policy</code> (OPTIONAL): <code>max_agents</code> (default 1),
 <code>allowed_mode</code> (<code>authorized_only</code> default or
-<code>representative_allowed</code>), and optional <code>max_session_hours</code>.<a href="#section-5.3-3.4.1" class="pilcrow">¶</a></p>
+<code>representative_allowed</code>), and optional <code>max_session_hours</code>.<a href="#section-5.3-4.4.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-5.3-3.5">
-            <p id="section-5.3-3.5.1"><code>extensions</code> (OPTIONAL): same structure as <code>aic.extensions</code>.<a href="#section-5.3-3.5.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-5.3-4.5">
+            <p id="section-5.3-4.5.1"><code>extensions</code> (OPTIONAL): same structure as <code>aic.extensions</code>.<a href="#section-5.3-4.5.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-5.3-4">Alternatively, in PKI mode, the principal's X.509 certificate carrying
+<p id="section-5.3-5">Alternatively, in PKI mode, the principal's X.509 certificate carrying
 the PrincipalAuthorization extension MAY be presented in the bundle as
-<code>x5c</code>; the verifier then evaluates the ASN.1 form.<a href="#section-5.3-4" class="pilcrow">¶</a></p>
+<code>x5c</code>; the verifier then evaluates the ASN.1 form.<a href="#section-5.3-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="mapping-from-asn1">
@@ -2681,14 +2843,20 @@ the PrincipalAuthorization extension MAY be presented in the bundle as
 <ul class="normal">
 <li class="normal" id="section-6.1-3.1">
             <p id="section-6.1-3.1.1"><code>scheme</code> (REQUIRED): the capability scheme identifier, 1 to 128
-characters.  Semantics are defined by the scheme, not by this
-specification.  Unknown schemes are routed to scheme-specific
-plugins; requests referencing unknown schemes MUST be rejected
-(fail-closed).<a href="#section-6.1-3.1.1" class="pilcrow">¶</a></p>
+characters.  The scheme is the namespace that defines the semantics
+of the capability, including identifier matching and parameter
+subset rules.  The <code>scheme</code> value MUST be matched exactly; wildcards
+MUST NOT be used in the <code>scheme</code> member, and a capability with
+<code>scheme="*"</code> MUST NOT be used (a bare <code>*</code> is not a cross-scheme
+capability).  Unknown schemes MUST be rejected unless the verifier
+has an explicit scheme-specific implementation or plugin for that
+scheme (fail-closed).<a href="#section-6.1-3.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-6.1-3.2">
             <p id="section-6.1-3.2.1"><code>id</code> (REQUIRED): the capability identifier within the scheme, 1 to
-256 characters, supporting glob wildcards (Section 6.2).<a href="#section-6.1-3.2.1" class="pilcrow">¶</a></p>
+256 characters.  The syntax and matching semantics of <code>id</code> are
+defined by the capability scheme; the HTTP-style examples in this
+section use the identifier matching rules of Section 6.2.<a href="#section-6.1-3.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-6.1-3.3">
             <p id="section-6.1-3.3.1"><code>params</code> (OPTIONAL): a JSON value (object, array, string, number, or
@@ -2697,16 +2865,26 @@ boolean) whose semantics are defined by the scheme.  When serialized,
 </li>
         </ul>
 <p id="section-6.1-4">The Capability object is the unified container reused in three
-contexts: <code>aic.capabilities</code>, <code>aic.constraints</code>, and PA <code>grants</code>.<a href="#section-6.1-4" class="pilcrow">¶</a></p>
+contexts: <code>aic.capabilities</code>, <code>aic.constraints</code>, and PA <code>grants</code>.
+Although the container is the same, the authorization role of each
+context is defined by the AIC semantic model; reuse does not imply
+semantic equivalence.<a href="#section-6.1-4" class="pilcrow">¶</a></p>
+<p id="section-6.1-5">Capability matching and parameter-subset evaluation define the
+effective AIC authorization input; they are not the final execution
+decision of a resource server or gateway.  Deployment-local execution
+policy is outside the AIC-JWT credential.<a href="#section-6.1-5" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="glob-matching">
+<div id="identifier-matching">
 <section id="section-6.2">
-        <h3 id="name-glob-matching">
-<a href="#section-6.2" class="section-number selfRef">6.2. </a><a href="#name-glob-matching" class="section-name selfRef">Glob Matching</a>
+        <h3 id="name-identifier-matching">
+<a href="#section-6.2" class="section-number selfRef">6.2. </a><a href="#name-identifier-matching" class="section-name selfRef">Identifier Matching</a>
         </h3>
-<p id="section-6.2-1">Capability matching uses the same rules as the X.509 AIC
-specification:<a href="#section-6.2-1" class="pilcrow">¶</a></p>
+<p id="section-6.2-1">For schemes that use the HTTP-style capability syntax, the matchable
+identifier is the full identifier <code>scheme + ":" + id</code> (for example,
+<code>http:GET:/api/v1/users</code>).  The <code>scheme</code> member is the exact first
+component of the full identifier and MUST NOT be wildcarded; the glob
+operators below apply to the <code>id</code> portion after the scheme prefix.<a href="#section-6.2-1" class="pilcrow">¶</a></p>
 <table class="center" id="table-5">
           <caption><a href="#table-5" class="selfRef">Table 5</a></caption>
 <thead>
@@ -2719,7 +2897,7 @@ specification:<a href="#section-6.2-1" class="pilcrow">¶</a></p>
           <tbody>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
-                <code>scheme:method:path</code>
+                <code>http:GET:/api/v1/users</code>
 </td>
               <td class="text-left" rowspan="1" colspan="1">exact</td>
               <td class="text-left" rowspan="1" colspan="1">
@@ -2728,97 +2906,113 @@ specification:<a href="#section-6.2-1" class="pilcrow">¶</a></p>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">
-                <code>scheme:method:path/*</code>
-</td>
-              <td class="text-left" rowspan="1" colspan="1">single segment (no <code>/</code>)</td>
-              <td class="text-left" rowspan="1" colspan="1">
                 <code>http:GET:/api/v1/*</code>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">single path segment (no <code>/</code>)</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>http:GET:/api/v1/users</code>
 </td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">
-                <code>scheme:method:path/**</code>
-</td>
-              <td class="text-left" rowspan="1" colspan="1">multi segment</td>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>http:GET:/api/v1/**</code>
 </td>
+              <td class="text-left" rowspan="1" colspan="1">one or more path segments</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>http:GET:/api/v1/users/admin</code>
+</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">
-                <code>scheme:{a,b}:path</code>
-</td>
-              <td class="text-left" rowspan="1" colspan="1">alternation</td>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>http:{GET,POST}:/api/*</code>
 </td>
+              <td class="text-left" rowspan="1" colspan="1">alternation within a segment</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>http:GET:/api/users</code>
+</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">
-                <code>scheme:[a-z]*:path</code>
-</td>
-              <td class="text-left" rowspan="1" colspan="1">character class</td>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>http:[A-Z]*:/api/*</code>
 </td>
+              <td class="text-left" rowspan="1" colspan="1">character class and embedded wildcard</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <code>http:GET:/api/users</code>
+</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">
-                <code>scheme:*:path</code>
-</td>
-              <td class="text-left" rowspan="1" colspan="1">single-segment wildcard in the method position</td>
               <td class="text-left" rowspan="1" colspan="1">
                 <code>http:*:/api/v1/*</code>
 </td>
-            </tr>
-            <tr>
+              <td class="text-left" rowspan="1" colspan="1">wildcard method position</td>
               <td class="text-left" rowspan="1" colspan="1">
-                <code>scheme:*</code>
-</td>
-              <td class="text-left" rowspan="1" colspan="1">scheme-level wildcard</td>
-              <td class="text-left" rowspan="1" colspan="1">
-                <code>http:*</code>
+                <code>http:GET:/api/v1/users</code>
 </td>
             </tr>
           </tbody>
         </table>
-<p id="section-6.2-3">Matching precedence (highest to lowest): exact, single-segment
-wildcard, multi-segment wildcard, alternation <code>{a,b}</code>, character class
-<code>[a-z]</code>, scheme-level wildcard.  When multiple rules match, the
-highest-precedence rule applies.  If no rule matches, the capability
-MUST be denied.<a href="#section-6.2-3" class="pilcrow">¶</a></p>
-<p id="section-6.2-4">Bare <code>*</code> without a scheme namespace MUST NOT be allowed.<a href="#section-6.2-4" class="pilcrow">¶</a></p>
-<p id="section-6.2-5">Matching is implemented as a two-level token stream: the pattern and
-the target are first split on <code>:</code>; each segment is then split on <code>/</code>.
-<code>*</code> matches exactly one path segment that does not contain <code>/</code> (or one
+<p id="section-6.2-3">A scheme-level wildcard (<code>scheme:*</code>) MUST NOT be used; <code>scheme</code> is
+always exact.  A bare <code>*</code> without a scheme prefix MUST NOT be
+interpreted as a cross-scheme capability.<a href="#section-6.2-3" class="pilcrow">¶</a></p>
+<p id="section-6.2-4">The full identifier is matched as a two-level token stream: the
+pattern and target are first split on <code>:</code> into the scheme and id
+components, and each id component is then split on <code>/</code>.  <code>*</code> matches
+exactly one path segment that does not contain <code>/</code> (or one
 colon-segment in the method position), while <code>**</code> matches one or more
 segments and MAY cross <code>/</code> boundaries.  Within a literal segment,
 <code>{a,b}</code> alternation matches one of the alternatives and <code>[a-z]</code>
 character classes match a single character in the class; an embedded
 <code>*</code> matches any characters within the segment (for example,
-<code>[A-Z]*</code>).  This algorithm was verified by the reference
-implementations (Go and TypeScript/WebCrypto) against the examples in
-this section.<a href="#section-6.2-5" class="pilcrow">¶</a></p>
+<code>[A-Z]*</code>).<a href="#section-6.2-4" class="pilcrow">¶</a></p>
+<p id="section-6.2-5">Precedence is limited to specificity: literal segments are more
+specific than <code>*</code>, and <code>*</code> is more specific than <code>**</code>.  Alternation
+and character classes are per-segment matching operators and do not
+by themselves define an authorization precedence.  If more than one
+capability pattern matches, the scheme defines whether and how the
+matching entries combine, and the result MUST be deterministic.  If no
+capability grant matches the requested capability, the capability MUST
+be denied.<a href="#section-6.2-5" class="pilcrow">¶</a></p>
+<p id="section-6.2-6">The exact syntax, escaping rules, and matching algorithm for a given
+capability scheme are defined by that scheme; the HTTP-style rules in
+this section MUST NOT be assumed for an unknown or unrelated scheme.
+This algorithm is verified by the reference implementations (Go and
+TypeScript/WebCrypto) against the examples in this section.<a href="#section-6.2-6" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="parameter-intersection">
+<div id="capability-subset-and-parameter-semantics">
 <section id="section-6.3">
-        <h3 id="name-parameter-intersection">
-<a href="#section-6.3" class="section-number selfRef">6.3. </a><a href="#name-parameter-intersection" class="section-name selfRef">Parameter Intersection</a>
+        <h3 id="name-capability-subset-and-param">
+<a href="#section-6.3" class="section-number selfRef">6.3. </a><a href="#name-capability-subset-and-param" class="section-name selfRef">Capability Subset and Parameter Semantics</a>
         </h3>
-<p id="section-6.3-1">When matching <code>P_grants</code> against <code>C_agent</code>:<a href="#section-6.3-1" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-6.3-2.1">
-            <p id="section-6.3-2.1.1">if <code>C_agent.params</code> exceeds the bounds of <code>P_grants.params</code>, the
-capability entry is invalid and MUST be filtered or rejected;<a href="#section-6.3-2.1.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-6.3-2.2">
-            <p id="section-6.3-2.2.1">otherwise the agent-specified <code>params</code> value is adopted in full.<a href="#section-6.3-2.2.1" class="pilcrow">¶</a></p>
-</li>
-        </ul>
-<p id="section-6.3-3">Example: <code>P_grants.params = {"max_rows": 1000}</code> with
-<code>C_agent.params = {"max_rows": 100}</code> is accepted with <code>max_rows=100</code>;
-with <code>max_rows=5000</code> it is rejected.<a href="#section-6.3-3" class="pilcrow">¶</a></p>
+<p id="section-6.3-1">Authorization between a principal grant and an agent capability is a
+subset relation:<a href="#section-6.3-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-6.3-2">
+<pre>
+C_agent &lt;= P_grant
+</pre><a href="#section-6.3-2" class="pilcrow">¶</a>
+</div>
+<p id="section-6.3-3">meaning the agent capability is within the authority granted by the
+principal grant.  The definition of this relation is scheme-specific:
+a capability scheme MUST define how identifiers and <code>params</code> are
+compared and what constitutes a valid subset.<a href="#section-6.3-3" class="pilcrow">¶</a></p>
+<p id="section-6.3-4">For example, an HTTP-style scheme MAY treat
+<code>P_grant.params.max_rows = 1000</code> and <code>C_agent.params.max_rows = 100</code>
+as a valid subset (<code>100 &lt;= 1000</code>), and <code>max_rows = 5000</code> as invalid.<a href="#section-6.3-4" class="pilcrow">¶</a></p>
+<p id="section-6.3-5">If <code>C_agent.params</code> is not a valid subset of <code>P_grants.params</code> under
+the scheme-defined relation, the credential MUST be rejected; a
+verifier MUST NOT silently filter or rewrite the signed agent
+capability.  Where the subset relation holds, the effective parameter
+value is the agent value (which is at least as restrictive as the
+grant), evaluated according to scheme semantics.<a href="#section-6.3-5" class="pilcrow">¶</a></p>
+<p id="section-6.3-6">This specification does not define a universal ordering or
+intersection operation over arbitrary JSON values; scheme-specific
+implementations MUST define subset semantics for every parameter type
+they support.<a href="#section-6.3-6" class="pilcrow">¶</a></p>
+<p id="section-6.3-7">The effective AIC authorization is obtained by evaluating agent
+capabilities against principal grants and the applicable AIC
+authorization constraints (Section 7).  The final execution decision
+MAY additionally be restricted by deployment-local gateway or
+resource-server policy, which is outside the AIC-JWT credential.<a href="#section-6.3-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2830,9 +3024,12 @@ with <code>max_rows=5000</code> it is rejected.<a href="#section-6.3-3" class="p
       </h2>
 <p id="section-7-1"><code>aic.constraints</code> is an optional array of Capability objects whose
 <code>scheme</code> MUST be <code>varwof/constraint-v1</code>; other scheme values MUST be
-rejected.  The <code>id</code> distinguishes constraint types; the following types
-are defined as examples, extensible through the capability scheme
-registry:<a href="#section-7-1" class="pilcrow">¶</a></p>
+rejected.  Within that scheme, <code>id</code> names the constraint type and
+<code>params</code> carries constraint-specific parameters.  This revision
+defines the following constraint types as the initial set of the
+<code>varwof/constraint-v1</code> scheme; new types are added within this scheme
+namespace, and incompatible semantics require a new scheme version
+(e.g., <code>varwof/constraint-v2</code>) rather than a change to <code>id</code> alone:<a href="#section-7-1" class="pilcrow">¶</a></p>
 <table class="center" id="table-6">
         <caption><a href="#table-6" class="selfRef">Table 6</a></caption>
 <thead>
@@ -2874,14 +3071,36 @@ registry:<a href="#section-7-1" class="pilcrow">¶</a></p>
       </table>
 <p id="section-7-3">Constraints are evaluated with logical AND: all constraints MUST be
 satisfied.  The constraint count MUST NOT exceed 32.  Unknown
-constraint types default to audit-and-ignore for forward compatibility;
-deployments MAY configure strict rejection.<a href="#section-7-3" class="pilcrow">¶</a></p>
-<p id="section-7-4"><code>aic.constraints</code> (execution boundaries) and PA <code>constraints</code>
-(authorization boundaries) are evaluated independently; there is no
-subset relationship between them.<a href="#section-7-4" class="pilcrow">¶</a></p>
-<p id="section-7-5">Runtime policy (timeouts, retries, rate limits, routing) MUST NOT be
+constraint types MUST be rejected: a verifier that cannot interpret a
+constraint cannot establish that the constraint is satisfied.
+Forward-compatible extension is achieved through explicit scheme
+versioning and type registration, not by ignoring unknown security
+constraints.<a href="#section-7-3" class="pilcrow">¶</a></p>
+<p id="section-7-4">Constraint semantics that depend on evaluation scope or time MUST be
+unambiguous.  For <code>max-concurrent</code>, the default scope is the number of
+concurrent executions of the agent identified by this credential at
+the evaluating verifier; a deployment MAY define a different scope
+(per principal, per DA, or deployment-wide) and MUST document it.  For
+<code>time-window</code>, times are expressed in UTC at minute precision; when
+<code>start &gt; end</code> the window crosses midnight, and <code>start == end</code> denotes
+a full 24-hour window.<a href="#section-7-4" class="pilcrow">¶</a></p>
+<p id="section-7-5"><code>aic.constraints</code> are credential-bound authorization constraints
+carried with the token; they are not deployment-local execution
+policy.  PA <code>constraints</code> are principal-level authorization
+boundaries.  The two are evaluated independently; there is no subset
+relationship between them.<a href="#section-7-5" class="pilcrow">¶</a></p>
+<p id="section-7-6">Runtime policy (timeouts, retries, rate limits, routing) MUST NOT be
 placed in <code>authorizationConstraints</code>; it remains in gateway local
-policy configuration.<a href="#section-7-5" class="pilcrow">¶</a></p>
+policy configuration.  The authorization layers are therefore:<a href="#section-7-6" class="pilcrow">¶</a></p>
+<p id="section-7-7"><code>
+P_aic = P_grants (AND) C_agent
+Permit_AIC(request) = CapabilityMatch(request, P_aic)
+                      (AND) ConstraintsSatisfied(request, aic.constraints)
+Permit(request) = Permit_AIC(request)
+                  (AND) GatewayPolicy(request, T_policy)
+</code><a href="#section-7-7" class="pilcrow">¶</a></p>
+<p id="section-7-8">where <code>T_policy</code> is the deployment-local gateway or resource-server
+policy.<a href="#section-7-8" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="delegation-model">
@@ -2896,15 +3115,18 @@ policy configuration.<a href="#section-7-5" class="pilcrow">¶</a></p>
         </h3>
 <p id="section-8.1-1"><strong>authorized</strong> (default): the Agent acts in its own name.  The audit
 log records <code>sub</code> (agentId) as the actor and <code>aic.principal.id</code> as the
-authorizing principal.  The capability set is locked at issuance; no
-runtime <code>P_grants</code> superset check is performed.  Narrow scope x longer
-lifetime (up to 24 hours with renewed DA on renewal).<a href="#section-8.1-1" class="pilcrow">¶</a></p>
+authorizing principal.  The effective capability set is established at issuance and
+cryptographically bound to the credential; unless a deployment
+explicitly requires dynamic grant evaluation, the verifier does not
+re-fetch or re-evaluate the principal's grants for each operation.
+Narrow scope x longer lifetime (up to 24 hours with renewed DA on
+renewal).<a href="#section-8.1-1" class="pilcrow">¶</a></p>
 <p id="section-8.1-2"><strong>representative</strong>: the Agent acts in the principal's name.  The audit
 log records <code>aic.principal.id</code> as the actor and <code>act.sub</code> (the
 agentId) as the executor.  The bundle MUST contain the principal's PA
-material.  At issuance and at runtime, <code>C_agent</code> MUST be a subset of
-<code>P_grants</code>.  Wide scope x short lifetime, with runtime <code>P_grants</code>
-intersection at each operation.<a href="#section-8.1-2" class="pilcrow">¶</a></p>
+material.  At issuance and at runtime, <code>C_agent</code> MUST be a subset of the
+principal's current grants <code>P_grants(t)</code>.  Wide scope x short
+lifetime, with runtime <code>P_grants(t)</code> intersection at each operation.<a href="#section-8.1-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="permission-intersection">
@@ -2912,16 +3134,23 @@ intersection at each operation.<a href="#section-8.1-2" class="pilcrow">¶</a></
         <h3 id="name-permission-intersection">
 <a href="#section-8.2" class="section-number selfRef">8.2. </a><a href="#name-permission-intersection" class="section-name selfRef">Permission Intersection</a>
         </h3>
-<p id="section-8.2-1">The effective permission set is the intersection of principal grants
-and agent capabilities:<a href="#section-8.2-1" class="pilcrow">¶</a></p>
+<p id="section-8.2-1">The effective AIC authority is the intersection of principal grants
+and agent capabilities, further restricted by the token's AIC
+constraints:<a href="#section-8.2-1" class="pilcrow">¶</a></p>
 <p id="section-8.2-2"><code>
-P_effective = P_grants (AND) C_agent
+P_aic = P_grants (AND) C_agent
+Permit_AIC(request) = CapabilityMatch(request, P_aic)
+                      (AND) ConstraintsSatisfied(request, aic.constraints)
 </code><a href="#section-8.2-2" class="pilcrow">¶</a></p>
-<p id="section-8.2-3">In <code>authorized</code> mode the intersection was verified at issuance and
-locked into the token.  In <code>representative</code> mode the intersection is
-computed at runtime for each operation.  Gateway local runtime policy
-(<code>T_policy</code>) is an additional enforcement layer and MUST NOT be
-confused with the <code>P (AND) C</code> intersection.<a href="#section-8.2-3" class="pilcrow">¶</a></p>
+<p id="section-8.2-3">In <code>authorized</code> mode the intersection is established at issuance
+(<code>P_grants(t0)</code>) and locked into the token.  In <code>representative</code> mode
+the intersection is computed at runtime against the principal's
+current grants <code>P_grants(t)</code> for each operation.  Gateway local
+runtime policy (<code>T_policy</code>) is an additional enforcement layer and
+MUST NOT be confused with the AIC authorization layers:<a href="#section-8.2-3" class="pilcrow">¶</a></p>
+<p id="section-8.2-4"><code>
+Permit(request) = Permit_AIC(request) (AND) GatewayPolicy(request, T_policy)
+</code><a href="#section-8.2-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="multi-level-delegation">
@@ -2929,22 +3158,31 @@ confused with the <code>P (AND) C</code> intersection.<a href="#section-8.2-3" c
         <h3 id="name-multi-level-delegation">
 <a href="#section-8.3" class="section-number selfRef">8.3. </a><a href="#name-multi-level-delegation" class="section-name selfRef">Multi-level Delegation</a>
         </h3>
-<p id="section-8.3-1">Single-level delegation (Principal -&gt; Agent, <code>chain_depth=0</code>) is the
-default and recommended deployment mode.  Depth-1 chains
-(Principal -&gt; Agent -&gt; sub-Agent, <code>chain_depth=1</code>) are supported
-optionally; each hop produces an independently signed DA JWT whose
-signer is the delegating agent.  Capabilities are recursively
-intersected along the chain.  Any <code>chain_depth</code> MUST NOT exceed
-<code>max_depth</code>; <code>max_depth</code> MUST NOT exceed 1 as a best practice.  A
-sub-agent MUST NOT delegate further.<a href="#section-8.3-1" class="pilcrow">¶</a></p>
-<p id="section-8.3-2">Recursive verification: starting from the presented token, verify each
-DA JWT with the signer's key (identified by the previous level's
-<code>principal</code>/<code>cnf</code>), check that declared capabilities are a subset of
-the delegator's effective capabilities, and repeat until the original
-principal or the depth limit is reached.  Cycles are prevented by
-strictly monotonic <code>chain_depth</code>; credential bomb attacks are limited
-by a gateway-configured maximum bundle size (default 8 certificates or
-equivalent tokens).<a href="#section-8.3-2" class="pilcrow">¶</a></p>
+<p id="section-8.3-1">Single-level delegation (Principal -&gt; Agent, <code>chain_depth=0</code>) MUST be
+supported and is the default.  Depth-1 chains (Principal -&gt; Agent -&gt;
+sub-Agent, <code>chain_depth=1</code>) MAY be supported.  Multi-level delegation
+requires an explicit delegation authority at each delegating level:
+an agent may delegate only if the DA that authorized it carries an
+explicit right to delegate (for example, a may-delegate capability or
+a delegation-policy allowance with an explicit depth bound); an agent
+without that right MUST NOT sign a DA for a sub-agent.<a href="#section-8.3-1" class="pilcrow">¶</a></p>
+<p id="section-8.3-2">Each hop in a supported chain produces an independently signed DA JWT.
+The signer of a hop is the delegating agent; the original principal
+remains the root authorizing party and MUST be identified separately
+from the hop signer (delegator vs. delegate vs. root principal).  The
+delegator's own DA MUST record the delegation right and the current
+<code>chain_depth</code>; capabilities are recursively narrowed along the chain.
+Verification of a hop MUST establish all of the following: the hop
+signer holds an explicit delegation authority; the delegated
+capabilities are a subset of the delegator's effective capabilities;
+<code>chain_depth</code> increases by exactly one per hop; and <code>chain_depth</code> does
+not exceed <code>max_depth</code>.  Cycles are prevented by strictly monotonic
+<code>chain_depth</code>.  Deployments SHOULD use <code>max_depth = 1</code>; larger values
+MAY be supported only with equivalent chain-size, capability-
+narrowing, and resource limits.  A sub-agent at the configured
+<code>max_depth</code> MUST NOT delegate further.  Credential bomb attacks are
+limited by a gateway-configured maximum bundle size (default 8
+certificates or equivalent tokens).<a href="#section-8.3-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -3006,27 +3244,36 @@ determined by <code>hash_alg</code>:<a href="#section-9.2-1" class="pilcrow">¶<
 <ul class="normal">
 <li class="normal" id="section-9.2-2.1">
             <p id="section-9.2-2.1.1">SPKI hash: <code>key_hash = base64url(hash_alg(SPKI))</code>, with
-<code>hash_alg</code> defaulting to SHA-256.  Only hash algorithms with output
-length not exceeding 64 bytes are supported (SHA-2/SHA-3 family, SM3,
-BLAKE2/BLAKE3).<a href="#section-9.2-2.1.1" class="pilcrow">¶</a></p>
+<code>hash_alg</code> defaulting to SHA-256.  The default binding is SHA-256
+over the DER-encoded SPKI; additional hash algorithms MAY be
+specified by the AIC registry.<a href="#section-9.2-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.2-2.2">
-            <p id="section-9.2-2.2.1">JWK thumbprint: <code>key_hash = jkt</code> per RFC 7638, <code>hash_alg = "jkt"</code>.<a href="#section-9.2-2.2.1" class="pilcrow">¶</a></p>
+            <p id="section-9.2-2.2.1">JWK thumbprint: <code>key_hash = jkt</code> per RFC 7638, <code>hash_alg = "jkt"</code>.
+The value <code>jkt</code> denotes the RFC 7638 JWK Thumbprint binding method
+(computed with SHA-256 over the canonical JWK members); it is not
+itself a hash algorithm name.<a href="#section-9.2-2.2.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-9.2-3">Mismatch MUST cause rejection (fail-closed).  The same SPKI-hash
-design rationale as the X.509 profile applies: certificate renewal with
+<p id="section-9.2-3">Mismatch MUST cause rejection (fail-closed).  A successful binding
+check does not by itself establish trust in the Principal; the
+resolved key MUST also satisfy the verifier's configured trust
+policy.  The same SPKI-hash design rationale as the X.509 profile
+applies: certificate renewal with
 the same key pair preserves the binding; key rotation invalidates all
 existing delegations without broadcast revocation.<a href="#section-9.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="deployment-note-offline-operation">
+<div id="cached-verification-and-disconnected-deployments">
 <section id="section-9.3">
-        <h3 id="name-deployment-note-offline-ope">
-<a href="#section-9.3" class="section-number selfRef">9.3. </a><a href="#name-deployment-note-offline-ope" class="section-name selfRef">Deployment Note: Offline Operation</a>
+        <h3 id="name-cached-verification-and-dis">
+<a href="#section-9.3" class="section-number selfRef">9.3. </a><a href="#name-cached-verification-and-dis" class="section-name selfRef">Cached Verification and Disconnected Deployments</a>
         </h3>
-<p id="section-9.3-1">AIC-JWT is designed for online verification and does not claim offline
-self-contained verification.  In air-gapped deployments that still use
+<p id="section-9.3-1">AIC-JWT is designed primarily for application-layer verification with
+online or cached trust and status information; it does not claim
+offline self-contained verification (that property belongs to the
+X.509 AIC profile and its credential bundle).  In air-gapped
+deployments that still use
 the JSON profile, the verifier MUST accept the risk that a token
 revoked after its last status check may be accepted until the next
 cache refresh; mitigations include short lifetime windows (RECOMMENDED
@@ -3045,8 +3292,9 @@ the <code>x5c</code> bundle path (SPKI hash of an X.509 certificate) is not
 available in browser-only deployments without a third-party ASN.1
 library or a server-side helper (Section 10.5, Mode B).  Browser
 deployments SHOULD use the JWK thumbprint form (<code>hash_alg: "jkt"</code>)
-exclusively and SHOULD rely on a server-side helper to convert any
-X.509 key material to JWK before it reaches the browser.<a href="#section-9.4-1" class="pilcrow">¶</a></p>
+exclusively.  When the originating credential is X.509-based, a
+trusted server-side component MAY perform the X.509-to-JWK conversion
+before key material reaches the browser.<a href="#section-9.4-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -3062,8 +3310,9 @@ X.509 key material to JWK before it reaches the browser.<a href="#section-9.4-1"
 <a href="#section-10.1" class="section-number selfRef">10.1. </a><a href="#name-pki-mode" class="section-name selfRef">PKI Mode</a>
         </h3>
 <p id="section-10.1-1">In PKI mode the DA is presented to a CA rather than redeemed at an
-authorization server: <code>aud</code> (Section 5.2) identifies the issuing CA or
-its relying-party domain, and the CA validates it when configured.<a href="#section-10.1-1" class="pilcrow">¶</a></p>
+authorization server: <code>aud</code> (Section 5.2) identifies the configured
+AIC issuance service that is authorized to accept the DA, and the CA
+validates it when configured.<a href="#section-10.1-1" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="section-10.1-2">
 <li id="section-10.1-2.1">
             <p id="section-10.1-2.1.1">The Agent generates a key pair and constructs an issuance request
@@ -3090,6 +3339,11 @@ and parameter-level subset of <code>P_grants</code>.<a href="#section-10.1-2.4.1
 not exceeding the DA <code>exp</code> (Section 5.1.1).<a href="#section-10.1-2.5.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
+<p id="section-10.1-3">Where a DA-level Agent key binding is present (a future DA claim-set
+revision aligned with the X.509 AIC DA v2), the CA MUST verify that
+the key identified by <code>cnf</code> matches that binding before signing; in
+this revision the presented Agent key is bound by <code>cnf</code> at
+consumption time.<a href="#section-10.1-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="oauth-authorization-server-mode">
@@ -3099,31 +3353,28 @@ not exceeding the DA <code>exp</code> (Section 5.1.1).<a href="#section-10.1-2.5
         </h3>
 <ol start="1" type="1" class="normal type-1" id="section-10.2-1">
 <li id="section-10.2-1.1">
-            <p id="section-10.2-1.1.1">The principal provides consent through the standard OAuth flow
-(authorization code with <code>requested_actor</code>, or an OBO-style flow).<a href="#section-10.2-1.1.1" class="pilcrow">¶</a></p>
+            <p id="section-10.2-1.1.1">The principal provides consent through an applicable OAuth
+authorization or delegation flow (for example, an authorization-code
+flow combined with a deployment-specific actor/delegation
+mechanism, or an OBO-style flow).<a href="#section-10.2-1.1.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-10.2-1.2">
             <p id="section-10.2-1.2.1">The Agent presents the principal-signed DA JWT with the token
-request.  The primary presentation is the <span>[<a href="#RFC7523" class="cite xref">RFC7523</a>]</span> authorization
-grant (<code>grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer</code>,
-the DA JWT as the <code>assertion</code> parameter).  A <code>scope</code> parameter MAY
+request as an <span>[<a href="#RFC7523" class="cite xref">RFC7523</a>]</span> authorization grant
+(<code>grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer</code>, the DA
+JWT as the <code>assertion</code> parameter).  A <code>scope</code> parameter MAY
 accompany the grant but MUST NOT extend the capabilities carried in
-the DA JWT.  In <code>authorized</code> mode the DA JWT MAY alternatively be
-presented as a <code>client_assertion</code>/<code>client_assertion_type</code> pair: the
-DA <code>sub</code> then equals the <code>agent_id</code>, which the AS has registered as
-the OAuth <code>client_id</code> of that agent, satisfying RFC 7523 Section 3,
-item 2B.  A <code>representative</code>-mode DA JWT MUST NOT be used as a
-client assertion: its <code>sub</code> is the resource owner, not the
-<code>client_id</code>.  In this issuance flow the client assertion
-accompanies the authorization grant; it authenticates the agent as
-client and does not by itself request a token.<a href="#section-10.2-1.2.1" class="pilcrow">¶</a></p>
+the DA JWT.  Client authentication at the token endpoint follows
+standard OAuth 2.0 practice and is outside this specification.<a href="#section-10.2-1.2.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-10.2-1.3">
-            <p id="section-10.2-1.3.1">The AS validates the DA JWT as an RFC 7523 assertion: signature by
-the principal key, <code>iss</code> equal to the principal identifier, <code>aud</code>
-containing this AS, <code>exp</code> equal to <code>ts + requested_lifetime</code> and
-not yet passed (subject to configured clock skew), <code>jti</code>/<code>nonce</code>
-uniqueness, and the per-mode <code>sub</code> rules (Section 5.2).  It then
+            <p id="section-10.2-1.3.1">The AS validates the DA JWT under both the JWT bearer assertion
+requirements of RFC 7523 (signature, <code>iss</code>, <code>aud</code>, and expiry) and
+the AIC-JWT DA rules of Section 5.2: <code>exp</code> MUST equal
+<code>ts + requested_lifetime</code> and MUST NOT have passed (subject to
+configured clock skew); the DA identifier (<code>jti</code>/<code>nonce</code>) MUST be
+unique within the configured replay-detection window; and the
+per-mode <code>sub</code> rules of Section 5.2 apply.  It then
 issues the outer AIC-JWT signed with the AS key, with <code>exp</code> bounded
 per Section 5.1.1 and role placement per Section 3.2.  An AS MAY
 require the DA <code>sub</code> to equal the subject identifier it registers
@@ -3136,14 +3387,14 @@ verification and revocation.<a href="#section-10.2-1.4.1" class="pilcrow">¶</a>
 </li>
         </ol>
 <p id="section-10.2-2">The AS MUST NOT sign the outer token without a valid principal-signed
-DA JWT (full profile), preserving the two-layer trust model.<a href="#section-10.2-2" class="pilcrow">¶</a></p>
+DA JWT (full profile), preserving the two-layer trust model.  Where a
+DA-level Agent key binding is present (a future DA claim-set revision
+aligned with the X.509 AIC DA v2), the AS MUST verify that the key
+identified by <code>cnf</code> matches that binding before signing; in this
+revision the presented Agent key is bound by <code>cnf</code> at consumption
+time.<a href="#section-10.2-2" class="pilcrow">¶</a></p>
 <p id="section-10.2-3">If the DA JWT is invalid or cannot be validated, the AS MUST return
-the <code>invalid_grant</code> error as required by RFC 7523 Section 3.1.  Where
-the DA JWT is presented as a client assertion and client
-authentication fails, the AS MUST return <code>invalid_client</code> per RFC 7523
-Section 3.2.  If client credentials are included in the request in
-addition to the assertion, the AS MUST validate them (RFC 7523
-Section 3.1).<a href="#section-10.2-3" class="pilcrow">¶</a></p>
+the <code>invalid_grant</code> error as required by RFC 7523 Section 3.1.<a href="#section-10.2-3" class="pilcrow">¶</a></p>
 <p id="section-10.2-4">Where the accountable operator of the agent differs from the resource
 owner (for example an enterprise-operated agent acting on an end
 user's data), the operator MUST be represented by a separate binding
@@ -3161,6 +3412,12 @@ future work and does not conflate the two parties.<a href="#section-10.2-4" clas
 token directly from principal consent recorded in the issuance
 process.  This profile mirrors the consumer model of the X.509
 specification and MUST NOT be used in <code>representative</code> mode.<a href="#section-10.3-1" class="pilcrow">¶</a></p>
+<p id="section-10.3-2">The lightweight profile does not provide the cryptographic principal
+authorization attestation of the full profile; its trust depends on
+the issuer's authenticated consent-recording process.  A token
+without a <code>da</code> claim is valid only under this profile and MUST NOT be
+accepted under full-profile validation, which requires the <code>da</code> claim
+(Section 5.1.3).<a href="#section-10.3-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="token-exchange-usage">
@@ -3168,35 +3425,11 @@ specification and MUST NOT be used in <code>representative</code> mode.<a href="
         <h3 id="name-token-exchange-usage">
 <a href="#section-10.4" class="section-number selfRef">10.4. </a><a href="#name-token-exchange-usage" class="section-name selfRef">Token Exchange Usage</a>
         </h3>
-<p id="section-10.4-1">An AIC-JWT MAY be produced or consumed through <span>[<a href="#RFC8693" class="cite xref">RFC8693</a>]</span> token
-exchange:<a href="#section-10.4-1" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-10.4-2.1">
-            <p id="section-10.4-2.1.1"><code>subject_token</code>: the principal's credential (e.g., an OAuth access
-token or a principal-bound JWT);<a href="#section-10.4-2.1.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-10.4-2.2">
-            <p id="section-10.4-2.2.1"><code>actor_token</code>: the Agent's AIC-JWT (or a workload identity token);<a href="#section-10.4-2.2.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-10.4-2.3">
-            <p id="section-10.4-2.3.1"><code>subject_token_type</code> / <code>actor_token_type</code>: the registered token
-types, including <code>urn:ietf:params:oauth:token-type:aic+jwt</code> for
-AIC-JWT.<a href="#section-10.4-2.3.1" class="pilcrow">¶</a></p>
-</li>
-        </ul>
-<p id="section-10.4-3">The exchanged token SHALL carry the AIC claims of the actor and the
-intersection of the actor's capabilities with the subject's grants.<a href="#section-10.4-3" class="pilcrow">¶</a></p>
-<p id="section-10.4-4">Role mapping in the exchanged token follows the AIC authorized-mode
-semantics rather than the RFC 8693 default shape: the issued token
-keeps the agent as <code>sub</code> (with the authorizing principal in
-<code>aic.principal</code>) and the capability set is the intersection above.
-The <code>subject_token</code> is a grants source, not the issued token's
-subject; an RP that requires a resource-owner-subject token MUST use
-the representative issuance path (Section 10.2) instead.  A
-<code>representative</code>-mode AIC-JWT MUST NOT be used as an <code>actor_token</code>:
-its <code>sub</code> is the resource owner, so it is not an actor credential.
-This deviation from the RFC 8693 subject/actor mapping is intentional
-and this section is normative for AIC-JWT deployments.<a href="#section-10.4-4" class="pilcrow">¶</a></p>
+<p id="section-10.4-1">This section is informative.  Deployments that already use <span>[<a href="#RFC8693" class="cite xref">RFC8693</a>]</span>
+MAY carry an AIC-JWT as an actor or subject token.  Role mapping
+follows RFC 8693; AIC claims are carried in the token unchanged.  This
+specification does not alter RFC 8693 semantics and does not define an
+RFC 8693 profile for AIC-JWT.<a href="#section-10.4-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="deployment-architectures">
@@ -3220,9 +3453,10 @@ processing, hardware-key-backed signing, and mTLS client-certificate
 cross-checks.  The helper MAY translate X.509 AIC credentials into
 AIC-JWTs (Section 10.6) or expose principal keys as JWKs so that
 browser verifiers only ever handle JWK material.<a href="#section-10.5-3" class="pilcrow">¶</a></p>
-<p id="section-10.5-4"><strong>Mode C - PKI (X.509) mode.</strong>  The original
-<span>[<a href="#AIC" class="cite xref">AIC</a>]</span> profile with mTLS is used; the JSON
-profile is not.<a href="#section-10.5-4" class="pilcrow">¶</a></p>
+<p id="section-10.5-4"><strong>Mode C - PKI (X.509) mode.</strong>  The X.509 AIC profile with mTLS is
+used as the primary carrier; an AIC-JWT MAY still be generated as an
+application-layer representation when an application protocol requires
+it (Section 10.6).<a href="#section-10.5-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="x509-aic-interoperability">
@@ -3236,16 +3470,17 @@ equivalences apply:<a href="#section-10.6-1" class="pilcrow">¶</a></p>
 <li class="normal" id="section-10.6-2.1">
             <p id="section-10.6-2.1.1">key binding: <code>aic.principal.key_hash</code> with a SHA-2 <code>hash_alg</code>
 (SPKI hash) and the <span>[<a href="#RFC7638" class="cite xref">RFC7638</a>]</span> JWK thumbprint of the same key are two
-encodings of the same binding; a helper MAY convert a presented
-X.509 certificate to a JWK and a verifier MAY accept either form;<a href="#section-10.6-2.1.1" class="pilcrow">¶</a></p>
+interoperable representations of a public key binding for the same
+underlying key; a helper MAY convert a presented X.509 certificate
+to a JWK and a verifier MAY accept either form;<a href="#section-10.6-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-10.6-2.2">
             <p id="section-10.6-2.2.1">DelegationAuthorization: the ASN.1 DelegationAuthTBS and the DA JWT
-payload carry the same ten AIC fields; the DA JWT additionally
-carries the RFC 7523 claims <code>iss</code>, <code>sub</code>, <code>aud</code>, <code>exp</code>, <code>iat</code>, and
-<code>jti</code>, which have no ASN.1 counterpart in the X.509 profile.  A PKI
-helper MAY translate between the two for issuance, verification, or
-audit;<a href="#section-10.6-2.2.1" class="pilcrow">¶</a></p>
+payload carry the AIC DelegationAuthorization semantic fields
+defined by <span>[<a href="#AIC" class="cite xref">AIC</a>]</span>; the DA JWT additionally carries the RFC 7523
+claims <code>iss</code>, <code>sub</code>, <code>aud</code>, <code>exp</code>, <code>iat</code>, and <code>jti</code>, which have no
+ASN.1 counterpart in the X.509 profile.  A PKI helper MAY translate
+between the two for issuance, verification, or audit;<a href="#section-10.6-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-10.6-2.3">
             <p id="section-10.6-2.3.1">PrincipalAuthorization: the ASN.1 extension and the PA JWT carry the
@@ -3253,9 +3488,9 @@ same grants, constraints, and delegation policy;<a href="#section-10.6-2.3.1" cl
 </li>
           <li class="normal" id="section-10.6-2.4">
             <p id="section-10.6-2.4.1">issuance: a server-side helper MAY accept an X.509 AIC credential
-bundle and issue the equivalent AIC-JWT (Mode B), so that a single
-authorization can be presented at the transport layer (mTLS) and at
-the application layer (Bearer) with identical semantics.<a href="#section-10.6-2.4.1" class="pilcrow">¶</a></p>
+bundle and issue the equivalent AIC-JWT (Mode B), so that the same
+authorization semantics can be enforced at the transport layer
+(mTLS) and at the application layer (Bearer).<a href="#section-10.6-2.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 <p id="section-10.6-3">Interoperability between the two profiles is a deployment mechanism,
@@ -3274,16 +3509,26 @@ not a new token format; both profiles share the data model defined by
 receiving the AIC-JWT and bundle:<a href="#section-11-1" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="section-11-2">
 <li id="section-11-2.1">
-          <p id="section-11-2.1.1"><strong>JWS verification</strong>: verify the outer signature using the issuer's
-key resolved from <code>kid</code> (JWKS or <code>x5c</code>), per RFC 7515.<a href="#section-11-2.1.1" class="pilcrow">¶</a></p>
+          <p id="section-11-2.1.1"><strong>Header checks</strong>: validate <code>typ == "aic+jwt"</code>, <code>alg</code> in the
+deployment allowlist, and reject <code>none</code> and symmetric algorithms
+(RFC 8725).  The verifier MUST NOT select a cryptographic
+verification method based on an algorithm value outside the
+allowlist.<a href="#section-11-2.1.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-11-2.2">
-          <p id="section-11-2.2.1"><strong>Header checks</strong>: validate <code>typ == "aic+jwt"</code>, <code>alg</code> in the
-allowlist, and reject <code>none</code> and symmetric algorithms (RFC 8725).<a href="#section-11-2.2.1" class="pilcrow">¶</a></p>
+          <p id="section-11-2.2.1"><strong>JWS verification</strong>: resolve the issuer's verification key from
+<code>kid</code> (JWKS or <code>x5c</code>) and verify the outer JWS signature per RFC
+7515 using the confirmed algorithm.  When <code>x5c</code> is present, the
+certificate chain MUST be validated against the verifier's
+configured trust policy and the resulting public key MUST
+correspond to the expected AIC issuer; a certificate carried in
+<code>x5c</code> does not by itself establish trust.<a href="#section-11-2.2.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-11-2.3">
           <p id="section-11-2.3.1"><strong>Time checks</strong>: <code>nbf &lt;= now &lt;= exp</code> (with deployment-configured
-clock skew); <code>exp - iat &lt;= requested_lifetime &lt;= 86400</code>.<a href="#section-11-2.3.1" class="pilcrow">¶</a></p>
+clock skew); <code>exp - iat &lt;= requested_lifetime</code> and
+<code>requested_lifetime &lt;= 86400</code>.  The outer AIC-JWT MAY have a
+shorter effective lifetime than the DA.<a href="#section-11-2.3.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-11-2.4">
           <p id="section-11-2.4.1"><strong>DA validation</strong> (full profile): verify the inner DA JWT signature
@@ -3323,13 +3568,18 @@ representative delegation; verify <code>C_agent</code> is a subset of
 <code>P_grants</code> (with parameter intersection per Section 6.3).<a href="#section-11-2.6.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-11-2.7">
-          <p id="section-11-2.7.1"><strong>Constraint evaluation</strong>: evaluate <code>aic.constraints</code> with AND
-semantics (IP ranges, concurrency, time windows), then PA
-constraints independently.  Constraint evaluation precedes
-capability evaluation for fast rejection.<a href="#section-11-2.7.1" class="pilcrow">¶</a></p>
+          <p id="section-11-2.7.1"><strong>Delegation depth check</strong>: verify <code>chain_depth &lt;= max_depth</code>
+and, for multi-level chains (Section 8.3), that depth increases by
+exactly one per hop and that each hop's delegated capabilities are
+a subset of the delegator's effective capabilities:
+<code>C_n &lt;= C_(n-1) &lt;= ... &lt;= P_grants</code>.  No hop may expand authority.<a href="#section-11-2.7.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-11-2.8">
-          <p id="section-11-2.8.1"><strong>Delegation depth check</strong>: verify <code>chain_depth &lt;= max_depth</code>.<a href="#section-11-2.8.1" class="pilcrow">¶</a></p>
+          <p id="section-11-2.8.1"><strong>Constraint evaluation</strong>: the effective constraint set is the
+conjunction of all applicable <code>aic.constraints</code> and, in
+<code>representative</code> mode, PA constraints; a request MUST satisfy
+every applicable constraint.  Constraint evaluation precedes
+capability evaluation for fast rejection.<a href="#section-11-2.8.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-11-2.9">
           <p id="section-11-2.9.1"><strong>Capability evaluation</strong>: route the capability required by the
@@ -3348,6 +3598,12 @@ is valid.<a href="#section-11-2.10.1" class="pilcrow">¶</a></p>
 sufficient diagnostic information for audit.<a href="#section-11-2.11.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
+<p id="section-11-3">Verification MUST NOT expand any authorization property.  In
+particular: effective capabilities are a subset of the principal
+grants (and of each delegator's capabilities in a chain); effective
+expiry does not exceed the DA <code>exp</code> or the deployment's maximum
+lifetime; <code>chain_depth</code> does not exceed <code>max_depth</code>; and every
+applicable constraint is satisfied.<a href="#section-11-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="examples">
@@ -3377,7 +3633,7 @@ sufficient diagnostic information for audit.<a href="#section-11-2.11.1" class="
   "aud": ["https://gw.example.com"],
   "iat": 1755500000,
   "exp": 1755503500,
-  "jti": "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdef",
+  "jti": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA",
   "cnf": { "jkt": "0ZcOCORZNYy-DWpqq30jZyHnXgk7dNsQo0c1V3iR4vY" },
   "aic": {
     "ver": 1,
@@ -3424,7 +3680,7 @@ sufficient diagnostic information for audit.<a href="#section-11-2.11.1" class="
   "aud": "https://ca.example.com/aic",
   "exp": 1755503500,
   "iat": 1755499900,
-  "jti": "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdef",
+  "jti": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA",
   "agent_id": "agent:db-analyst-01",
   "principal": {
     "realm": "corp.com",
@@ -3445,7 +3701,7 @@ sufficient diagnostic information for audit.<a href="#section-11-2.11.1" class="
   ],
   "requested_lifetime": 3600,
   "ts": 1755499900,
-  "nonce": "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdef"
+  "nonce": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA"
 }
 </code><a href="#section-12.2-4" class="pilcrow">¶</a></p>
 </section>
@@ -3472,9 +3728,12 @@ unexpected <code>typ</code> values.  AIC-JWT MUST always be asymmetric.<a href="
         <h3 id="name-token-theft-and-replay">
 <a href="#section-13.2" class="section-number selfRef">13.2. </a><a href="#name-token-theft-and-replay" class="section-name selfRef">Token Theft and Replay</a>
         </h3>
-<p id="section-13.2-1">AIC-JWT is a bearer token by default.  Deployments MUST use TLS.  The
-token MUST carry <code>cnf</code> binding it to the Agent key, and deployments
-SHOULD additionally use DPoP <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span> to prevent token theft and
+<p id="section-13.2-1">AIC-JWT is not inherently sender-constrained: in a deployment that
+does not enforce proof of possession, a party in possession of the
+token can use it as a bearer credential until expiry.  Deployments
+MUST use TLS.  The token MUST carry <code>cnf</code> binding it to the Agent
+key, and deployments SHOULD additionally use DPoP <span>[<a href="#RFC9449" class="cite xref">RFC9449</a>]</span> (or an
+equivalent proof-of-possession mechanism) to prevent token theft and
 replay.  Where higher assurance is required, the AS MAY challenge the principal with step-up authentication <span>[<a href="#RFC9470" class="cite xref">RFC9470</a>]</span> before issuing or refreshing tokens.  Where mTLS is deployed, the verifier MAY cross-check the mTLS
 client certificate key against <code>cnf</code> (Section 3.3).  Replay is
 additionally bounded by the DA <code>nonce</code>/<code>jti</code> uniqueness check at
@@ -3487,9 +3746,10 @@ DA JWT, not a plaintext parameter.<a href="#section-13.2-1" class="pilcrow">¶</
         <h3 id="name-audience-confusion">
 <a href="#section-13.3" class="section-number selfRef">13.3. </a><a href="#name-audience-confusion" class="section-name selfRef">Audience Confusion</a>
         </h3>
-<p id="section-13.3-1">The <code>aud</code> claim MUST be validated per RFC 9068.  Issuers MUST use
-distinct issuer identifiers per trust domain (RFC 9207) so that a token
-issued by one AS cannot be accepted by another.<a href="#section-13.3-1" class="pilcrow">¶</a></p>
+<p id="section-13.3-1">The <code>aud</code> claim MUST be validated per <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span> and the deployment's
+audience policy.  Issuers MUST use distinct issuer identifiers per
+trust domain (RFC 9207) so that a token issued by one AS cannot be
+accepted by another.<a href="#section-13.3-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="nested-token-confusion">
@@ -3538,7 +3798,12 @@ key rotation invalidates all existing delegations;<a href="#section-13.6-2.3.1" 
 </li>
           <li class="normal" id="section-13.6-2.4">
             <p id="section-13.6-2.4.1">compromised CA/AS: mitigated by the two-layer signature -- the
-attacker still cannot forge a principal-signed DA JWT.<a href="#section-13.6-2.4.1" class="pilcrow">¶</a></p>
+attacker still cannot forge a principal-signed DA JWT.  A
+compromised issuer could re-issue an outer token with a different
+<code>cnf</code> key; DA-level Agent key binding (a future DA claim-set
+revision) closes this gap, and deployments that require
+principal-to-key binding MUST constrain issuance policy accordingly
+until that binding is available.<a href="#section-13.6-2.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
@@ -3716,18 +3981,19 @@ registry:<a href="#section-15.2-1" class="pilcrow">¶</a></p>
               <td class="text-left" rowspan="1" colspan="1">Principal-signed DelegationAuthorization JWT</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">
-                <code>aic+da</code> (inner payload members)</td>
-              <td class="text-left" rowspan="1" colspan="1">DelegationAuthTBS equivalent, plus the RFC 7523 claims <code>iss</code>, <code>sub</code>, <code>aud</code>, <code>exp</code>, <code>iat</code>, <code>jti</code>
+              <td class="text-left" rowspan="1" colspan="1">members of the DA JWT payload</td>
+              <td class="text-left" rowspan="1" colspan="1">AIC delegation fields plus the RFC 7523 claims <code>iss</code>, <code>sub</code>, <code>aud</code>, <code>exp</code>, <code>iat</code>, <code>jti</code>
 </td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">
-                <code>aic+pa</code> (payload members)</td>
-              <td class="text-left" rowspan="1" colspan="1">PrincipalAuthorization equivalent</td>
+              <td class="text-left" rowspan="1" colspan="1">members of the PA JWT payload</td>
+              <td class="text-left" rowspan="1" colspan="1">PrincipalAuthorization fields</td>
             </tr>
           </tbody>
         </table>
+<p id="section-15.2-3">Members of the DA and PA JWT payloads are namespaced member names
+carried inside those JWTs; they are not registered as standalone
+top-level JWT claims.<a href="#section-15.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="oauth-token-type-urn">
@@ -3735,8 +4001,8 @@ registry:<a href="#section-15.2-1" class="pilcrow">¶</a></p>
         <h3 id="name-oauth-token-type-urn">
 <a href="#section-15.3" class="section-number selfRef">15.3. </a><a href="#name-oauth-token-type-urn" class="section-name selfRef">OAuth Token Type URN</a>
         </h3>
-<p id="section-15.3-1">Register <code>urn:ietf:params:oauth:token-type:aic+jwt</code> for use with RFC
-<span>[<a href="#RFC8693" class="cite xref">RFC8693</a>]</span> token exchange and <span>[<a href="#RFC7523" class="cite xref">RFC7523</a>]</span> assertions.<a href="#section-15.3-1" class="pilcrow">¶</a></p>
+<p id="section-15.3-1">This document does not request registration of an OAuth token type
+URN.<a href="#section-15.3-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="oauth-authorization-server-metadata">
@@ -3744,10 +4010,8 @@ registry:<a href="#section-15.2-1" class="pilcrow">¶</a></p>
         <h3 id="name-oauth-authorization-server-m">
 <a href="#section-15.4" class="section-number selfRef">15.4. </a><a href="#name-oauth-authorization-server-m" class="section-name selfRef">OAuth Authorization Server Metadata</a>
         </h3>
-<p id="section-15.4-1">Consider registering metadata entries indicating AIC-JWT support, such
-as <code>aic_jwt_supported</code> and <code>aic_jwt_profiles_supported</code>
-(<code>pki</code> | <code>oauth-as</code>), following the OAuth Authorization Server Metadata
-specification.<a href="#section-15.4-1" class="pilcrow">¶</a></p>
+<p id="section-15.4-1">This document does not request any OAuth Authorization Server
+Metadata entries.<a href="#section-15.4-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -3889,7 +4153,8 @@ profile; verifiers requiring principal non-repudiation MUST use the
 <code>da</code> claim;<a href="#section-16-4.5.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-16-4.6">
-          <p id="section-16-4.6.1">the AIC-JWT <code>iss</code> remains the OAuth/RFC 9068 issuer URL; JWT-SVID
+          <p id="section-16-4.6.1">the AIC-JWT <code>iss</code> is the issuer identifier per <span>[<a href="#RFC7519" class="cite xref">RFC7519</a>]</span> (in OAuth
+AS deployments, the OAuth issuer URL); JWT-SVID
 validators do not process <code>iss</code> -- the trust domain is anchored by
 the <code>sub</code> SPIFFE ID and the SPIFFE bundle used for signature
 verification.  Deployments requiring RFC 9068 conformance MUST NOT
@@ -3956,14 +4221,14 @@ sources; the Go suites also pass under go test -race.<a href="#section-18-2.2.1"
 <p id="section-18-3">The Go core is maintained in github.com/varwof/types (package
 types/aicjwt); the wrapper, OAuth protocol-layer simulation, and the
 TypeScript/WebCrypto implementation are in
-https://github.com/varwof/aic-jwt.  Findings verified by these
+https://github.com/varwof/aic-jwt/.  Findings verified by these
 implementations are incorporated in Sections 6.2, 9.4, 10.5, 10.6,
 11, and 13.8.<a href="#section-18-3" class="pilcrow">¶</a></p>
 <p id="section-18-4">Release state (2026-09-06): the RFC 7523 claims/role model defined by
 this revision (DA ver=2) is implemented in the types release v0.5.2
 (https://github.com/varwof/types/tree/v0.5.2) and the aic-jwt
-reference branch
-(https://github.com/varwof/aic-jwt/tree/fix/rfc7523-oauth-flow).
+repository
+(https://github.com/varwof/aic-jwt/).
 Earlier revisions of this draft pinned the types v0.3.1 release.<a href="#section-18-4" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -3981,22 +4246,22 @@ identity and accountability frameworks.<a href="#section-19-1" class="pilcrow">�
       <h2 id="name-change-log">
 <a href="#section-20" class="section-number selfRef">20. </a><a href="#name-change-log" class="section-name selfRef">Change Log</a>
       </h2>
-<p id="section-20-1">draft-wei-aic-jwt-01 (2026-09-05):<a href="#section-20-1" class="pilcrow">¶</a></p>
+<p id="section-20-1">draft-wei-aic-jwt-01 (2026-09-05; revised 2026-09-08):<a href="#section-20-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-20-2.1">
-          <p id="section-20-2.1.1">The DA JWT now carries the RFC 7523 claims <code>iss</code>, <code>sub</code>, <code>aud</code>,
-<code>exp</code> and <code>jti</code> (jti = nonce; exp = ts + requested_lifetime), making
-the Section 10.2 jwt-bearer presentation interoperable (resolves
-review by I. Schrock, OAuth WG, 2026-09-04).<a href="#section-20-2.1.1" class="pilcrow">¶</a></p>
+          <p id="section-20-2.1.1">The DA JWT carries the RFC 7523 claims <code>iss</code>, <code>sub</code>, <code>aud</code>,
+<code>exp</code> and <code>jti</code> (jti = nonce; exp = ts + requested_lifetime),
+making the Section 10.2 jwt-bearer presentation interoperable
+(resolves review by I. Schrock, OAuth WG, 2026-09-04).<a href="#section-20-2.1.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-20-2.2">
           <p id="section-20-2.2.1">Role placement is mode-dependent: representative mode places the
-resource owner / principal in <code>sub</code> and the agent in <code>act</code> (RFC 8693
-actor / OAuth client); authorized mode places the agent in <code>sub</code> as
-the authorized accessor (RFC 7523 Section 3, item 2A).  The X.509
-convention that the certificate subject is the agent is retained in
-authorized mode only and stated as such (resolves review by J.
-Lombardo, OAuth WG, 2026-09-04).<a href="#section-20-2.2.1" class="pilcrow">¶</a></p>
+resource owner / principal in <code>sub</code> and the agent in <code>act</code> (RFC
+8693 actor / OAuth client); authorized mode places the agent in
+<code>sub</code> as the authorized accessor (RFC 7523 Section 3, item 2A).
+The X.509 convention that the certificate subject is the agent is
+retained in authorized mode only and stated as such (resolves
+review by J. Lombardo, OAuth WG, 2026-09-04).<a href="#section-20-2.2.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-20-2.3">
           <p id="section-20-2.3.1">A deployment whose accountable operator differs from the resource
@@ -4004,84 +4269,64 @@ owner MUST represent the operator separately; recorded as future
 work.<a href="#section-20-2.3.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-20-2.4">
-          <p id="section-20-2.4.1">Token exchange mapping clarified (Section 10.4): the exchanged token
-keeps authorized-mode AIC semantics (agent as <code>sub</code>, principal in
-<code>aic.principal</code>); a representative-mode token is rejected as an
-<code>actor_token</code>; operator binding remains future work.<a href="#section-20-2.4.1" class="pilcrow">¶</a></p>
+          <p id="section-20-2.4.1">DA <code>ver</code> bumped to 2 for the -01 claim set; <code>ver=1</code> is the -00
+shape and is rejected, making the schema break explicit.<a href="#section-20-2.4.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-20-2.5">
-          <p id="section-20-2.5.1">DA <code>ver</code> bumped to 2 for the -01 claim set; <code>ver=1</code> is the -00 shape
-and is rejected, making the schema break explicit.<a href="#section-20-2.5.1" class="pilcrow">¶</a></p>
+          <p id="section-20-2.5.1">Positioning tightened (2026-09-08): AIC-JWT is the JWT carrier of
+the AIC semantic model; the document does not define an RFC 9068
+access-token profile, does not modify RFC 8693, and does not
+redefine AIC semantics.  The DA JWT is carried as the value of the
+top-level <code>da</code> claim (Section 5.1.3).<a href="#section-20-2.5.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-20-2.6">
-          <p id="section-20-2.6.1">Reference implementations (Go and TypeScript/WebCrypto) updated with
-regression tests for the claims and role model above.<a href="#section-20-2.6.1" class="pilcrow">¶</a></p>
+          <p id="section-20-2.6.1">OAuth scope trimmed (2026-09-08): RFC 7523 authorization-grant
+presentation is the only normative OAuth consumption profile;
+RFC 8693, DPoP, Token Status Lists, RFC 9068 and related
+mechanisms are deployment-specific; client-assertion presentation
+was removed; OAuth token type URN and Authorization Server
+Metadata registrations are no longer requested; the token-exchange
+section is informative; error handling at the token endpoint
+follows RFC 7523 Section 3.1 (<code>invalid_grant</code>).<a href="#section-20-2.6.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-20-2.7">
-          <p id="section-20-2.7.1">RFC 7523 conformance completion: jwt-bearer grant is the primary
-token-endpoint presentation and client-assertion use is restricted
-to authorized mode (Section 10.2); <code>invalid_grant</code> /
-<code>invalid_client</code> error handling and client-credential validation
-stated (Section 10.2); the outer <code>exp</code> is bounded by the DA <code>exp</code>
-(Section 5.1.1); DA <code>aud</code> and multi-level recursion added to the
-validation pipeline (Section 11); the Section 12 examples updated
-to the -01 claims set; cross-references and ASN.1 mapping table
-corrected.<a href="#section-20-2.7.1" class="pilcrow">¶</a></p>
+          <p id="section-20-2.7.1">PA signing decided (2026-09-08): in pure-JSON/OAuth deployments
+the PA JWT is signed by the issuer that attests the principal
+identity; in PKI deployments the PrincipalAuthorization is carried
+in the principal's X.509 certificate.<a href="#section-20-2.7.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-20-2.8">
+          <p id="section-20-2.8.1">Validation and constraints tightened (2026-09-08): header checks
+precede JWS verification; unknown constraint types MUST be
+rejected; capability subset semantics are scheme-defined;
+multi-level delegation requires an explicit delegation authority;
+the DA nonce is the unpadded base64url encoding of exactly 32
+octets; examples corrected accordingly.<a href="#section-20-2.8.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-20-2.9">
+          <p id="section-20-2.9.1">Wording alignment (2026-09-08): clarified that AIC-JWT is not
+inherently sender-constrained and requires an enforced
+proof-of-possession mechanism for sender binding (Section 13.2);
+constraint types in Section 7 are described as the initial defined
+set rather than examples; "self-contained credential" is qualified
+to distinguish token-carried authorization claims from offline
+self-contained verification (Sections 3.2 and 9.3).<a href="#section-20-2.9.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-20-2.10">
+          <p id="section-20-2.10.1">Reference implementations (Go and TypeScript/WebCrypto) updated
+with regression tests for the claims and role model above.<a href="#section-20-2.10.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
-<p id="section-20-3">draft-wei-aic-jwt-00 (2026-08-24, revision 5):<a href="#section-20-3" class="pilcrow">¶</a></p>
+<p id="section-20-3">draft-wei-aic-jwt-00 (2026-08-24):<a href="#section-20-3" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-20-4.1">
-          <p id="section-20-4.1.1">Section 16: clarified that the AIC-JWT <code>iss</code> remains the OAuth URL
-and is not processed by JWT-SVID validators (trust domain is anchored
-by <code>sub</code> + SPIFFE bundle); added the SPIFFE-mode <code>sub</code> inheritance
-rule, the key dual-publication rule (OAuth JWKS + JWT-SVID bundle
-entry) and the <code>typ</code> projection rule.<a href="#section-20-4.1.1" class="pilcrow">¶</a></p>
-</li>
-      </ul>
-<p id="section-20-5">draft-wei-aic-jwt-00 (2026-08-24, revision 4):<a href="#section-20-5" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-20-6.1">
-          <p id="section-20-6.1.1">Added PS384 and PS512 to the algorithm allowlist (Section 4.5) to
-align with the SPIFFE JWT-SVID algorithm set; EdDSA remains a MAY
-extension beyond the JWT-SVID set.<a href="#section-20-6.1.1" class="pilcrow">¶</a></p>
-</li>
-      </ul>
-<p id="section-20-7">draft-wei-aic-jwt-00 (2026-08-23, revision 3):<a href="#section-20-7" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-20-8.1">
-          <p id="section-20-8.1.1">Added compatibility mapping with the Varwof Unified JWT Profile
-(Section 16), keeping AIC-JWT interoperable with SPIFFE JWT-SVID and
-RFC 9068 projections.<a href="#section-20-8.1.1" class="pilcrow">¶</a></p>
-</li>
-      </ul>
-<p id="section-20-9">draft-wei-aic-jwt-00 (2026-08-23, revision 2):<a href="#section-20-9" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-20-10.1">
-          <p id="section-20-10.1.1">Clarified the two-level capability matching algorithm (Section 6.2).<a href="#section-20-10.1.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-20-10.2">
-          <p id="section-20-10.2.1">Clarified that DA nonce uniqueness is enforced at issuance and MUST
-NOT be treated as single-use by the verifier (Section 11).<a href="#section-20-10.2.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-20-10.3">
-          <p id="section-20-10.3.1">Added deployment architectures, including pure OAuth/JSON, hybrid
-server-side PKI helper, and X.509 interoperability (Sections
-10.5-10.6).<a href="#section-20-10.3.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-20-10.4">
-          <p id="section-20-10.4.1">Added browser key-material guidance (Section 9.4) and WebCrypto
-runtime constraints (Section 13.8).<a href="#section-20-10.4.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-20-10.5">
-          <p id="section-20-10.5.1">Added implementation status for the Go and TypeScript/WebCrypto
-reference implementations.<a href="#section-20-10.5.1" class="pilcrow">¶</a></p>
-</li>
-      </ul>
-<p id="section-20-11">draft-wei-aic-jwt-00 (2026-08-23):<a href="#section-20-11" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-20-12.1">
-          <p id="section-20-12.1.1">Initial individual draft.<a href="#section-20-12.1.1" class="pilcrow">¶</a></p>
+          <p id="section-20-4.1.1">Initial individual submission.  Established AIC-JWT as the JWT
+application-layer representation of the AIC X.509 model: an
+issuer-signed outer token carrying a principal-signed DA JWT,
+capability and constraint containers, RFC 7523 authorization-grant
+presentation, DA nonce replay controls, deployment architectures,
+and projections to SPIFFE JWT-SVID and RFC 9068 views (including
+the SPIFFE-aligned algorithm allowlist and <code>typ</code> projection rules).<a href="#section-20-4.1.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
 </section>
@@ -4198,13 +4443,9 @@ reference implementations.<a href="#section-20-10.5.1" class="pilcrow">¶</a></p
         <dd>
 <span class="refAuthor">Dissanayaka, A.</span>, <span class="refTitle">"OAuth 2.0 Extension: On-Behalf-Of User Authorization for AI Agents"</span>, <time datetime="2025-08" class="refDate">August 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-oauth-ai-agents-on-behalf-of-user/">https://datatracker.ietf.org/doc/draft-oauth-ai-agents-on-behalf-of-user/</a>&gt;</span>. </dd>
 <dd class="break"></dd>
-<dt id="WIMSE">[WIMSE]</dt>
-        <dd>
-<span class="refAuthor">Campbell, B.</span>, <span class="refTitle">"WIMSE Service to Service Authentication"</span>, <time datetime="2026" class="refDate">2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-ietf-wimse-s2s-protocol/">https://datatracker.ietf.org/doc/draft-ietf-wimse-s2s-protocol/</a>&gt;</span>. </dd>
-<dd class="break"></dd>
 <dt id="ATN">[ATN]</dt>
         <dd>
-<span class="refAuthor">Somoza, J.</span>, <span class="refTitle">"ATN Agent Trust Negotiation"</span>, <time datetime="2026" class="refDate">2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-somoza-atn-agent-trust-negotiation/">https://datatracker.ietf.org/doc/draft-somoza-atn-agent-trust-negotiation/</a>&gt;</span>. </dd>
+<span class="refAuthor">Somoza, J.</span>, <span class="refTitle">"ATN Agent Trust Negotiation"</span>, <time datetime="2026-05" class="refDate">May 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-somoza-atn-agent-trust-negotiation/">https://datatracker.ietf.org/doc/draft-somoza-atn-agent-trust-negotiation/</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="PEDIGREE">[PEDIGREE]</dt>
         <dd>
