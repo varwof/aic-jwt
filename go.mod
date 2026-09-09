@@ -2,4 +2,4 @@ module github.com/varwof/aic-jwt
 
 go 1.26
 
-require github.com/varwof/types v0.5.2
+require github.com/varwof/types v0.6.0
