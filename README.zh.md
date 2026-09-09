@@ -39,13 +39,10 @@ npm run build && open demo/dist/index.html      # 浏览器演示
 
 ## 草案
 
-- AIC-JWT（已备好待发布修订）：[draft-wei-aic-jwt-01.md](docs/draft-wei-aic-jwt-01.md)
-  ——RFC 7523 DA claim（DA ver=2）、按模式角色、token exchange 映射（§10.4）。
-  datatracker 上当前仍为 -00，待 -01 提交。
-- AIC-JWT：[draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md)（另有 `.xml` / `.txt` / `.html`）——在线阅读：[Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-jwt/)
+- AIC-JWT：[draft-wei-aic-jwt-01.md](docs/draft-wei-aic-jwt-01.md)（另有 `.xml` / `.txt` / `.html`）——RFC 7523 DA claim（DA ver=2）、按模式角色、token exchange 映射（§10.4）。datatracker 上当前为 -01：<https://datatracker.ietf.org/doc/draft-wei-aic-jwt/>
 - AIC X.509 配套：[draft-wei-aic-identity-cert-01.md](docs/draft-wei-aic-identity-cert-01.md)（另有 `.xml` / `.txt` / `.html`）——在线阅读：[Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
 
-仓库内的草案副本为快照（对应 types v0.5.2）；权威文本以 datatracker
+仓库内的草案副本为快照（对应 types v0.6.0）；权威文本以 datatracker
 发布版本为准。
 
 ## 工作原理
@@ -105,7 +102,7 @@ open demo/dist/index.html       # 无服务器浏览器演示，默认英文（�
   （`Executor` 与 `Actor` 并列）已同步。
 - **Token exchange**：映射在 -01 §10.4 声明；representative token 不能当
   actor 凭据。
-- **依赖**：`github.com/varwof/types` v0.5.2。
+- **依赖**：`github.com/varwof/types` v0.6.0。
 - **第三方验证**：`verify/` 用 `jose` 与 `jsonwebtoken` 验证 AIC-JWT 是
   可被通用 JWT 库消费的标准 JWT（签名/iss/aud/exp）；AIC 特有语义仍由
   AIC-JWT 参考实现验证。
@@ -121,8 +118,7 @@ open demo/dist/index.html       # 无服务器浏览器演示，默认英文（�
   [emiliaprotocol/emilia-protocol#730](https://github.com/emiliaprotocol/emilia-protocol/pull/730)。
 
 边界：本项目实现 AIC-JWT 语义及其声明的 OAuth 7523/8693 接缝，不是完整的
-OAuth 授权服务器实现；通用 JWT 库只校验标准 JWT 层；草案为 Experimental，
-datatracker 当前为 -00，待 -01 发布。
+OAuth 授权服务器实现；通用 JWT 库只校验标准 JWT 层；草案为 Experimental。
 
 ## 演示
 

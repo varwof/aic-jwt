@@ -46,14 +46,10 @@ npm run build && open demo/dist/index.html      # browser demo
 
 ## Drafts
 
-- AIC-JWT (prepared revision): [draft-wei-aic-jwt-01.md](docs/draft-wei-aic-jwt-01.md)
-  — RFC 7523 DA claims (DA ver=2), per-mode role placement, token
-  exchange mapping (§10.4). The -00 revision remains current on the
-  Datatracker until -01 is posted.
-- AIC-JWT: [draft-wei-aic-jwt-00.md](docs/draft-wei-aic-jwt-00.md) (also `.xml` / `.txt` / `.html`) — read online: [Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-jwt/)
+- AIC-JWT: [draft-wei-aic-jwt-01.md](docs/draft-wei-aic-jwt-01.md) (also `.xml` / `.txt` / `.html`) — RFC 7523 DA claims (DA ver=2), per-mode role placement, token exchange mapping (§10.4). Current revision on the Datatracker: <https://datatracker.ietf.org/doc/draft-wei-aic-jwt/>
 - AIC X.509 companion: [draft-wei-aic-identity-cert-01.md](docs/draft-wei-aic-identity-cert-01.md) (also `.xml` / `.txt` / `.html`) — read online: [Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
 
-Repository copies of draft text are snapshots (pinned to types v0.5.2);
+Repository copies of draft text are snapshots (pinned to types v0.6.0);
 the authoritative text is the version posted on the Datatracker.
 
 ## How it works
@@ -122,7 +118,7 @@ Recent changes reflect OAuth WG review (Lombardo/Schrock, 2026-09-04):
   alongside `Actor`) are updated accordingly.
 - **Token exchange**: the mapping is documented in -01 Section 10.4;
   representative-mode tokens are rejected as actor credentials.
-- **Dependency**: `github.com/varwof/types` v0.5.2.
+- **Dependency**: `github.com/varwof/types` v0.6.0.
 - **Third-party verification**: `verify/` validates that an AIC-JWT is
   a standard JWT consumable by `jose` and `jsonwebtoken` (signature,
   iss, aud, exp).  AIC-specific semantics remain validated by the
@@ -143,8 +139,7 @@ Recent changes reflect OAuth WG review (Lombardo/Schrock, 2026-09-04):
 Boundaries: this project implements AIC-JWT semantics and the OAuth
 7523/8693 seams it declares; it is not an OAuth authorization-server
 implementation.  Generic JWT libraries validate the standard JWT layer
-only.  The drafts are Experimental; the -00 revision is current on the
-Datatracker until -01 is posted.
+only.  The drafts are Experimental.
 
 ## Demo
 
