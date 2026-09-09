@@ -217,7 +217,15 @@ func mapExtensions(in []pki.ExtField) (map[string]Extension, error) {
 // signature algorithm OID recorded in the extension.  This closes the
 // ASN.1->JSON faithfulness gap: the ten AIC fields carried in the
 // converted DA claims are the ones actually signed by the principal.
-func VerifyX509Delegation(aic *pki.AIC, principalPub crypto.PublicKey) error {
+//
+// agentSPKI is the SPKI of the certificate carrying the AIC.  Version 2
+// appends the agentKeyBinding over this SPKI and requires it non-empty.
+//
+// Version negotiation mirrors core/internal/ca: version 0 (unspecified)
+// prefers version 2 when the agent SPKI is available, then falls back to
+// version 1.  Version 1 additionally tolerates the legacy pre-v2 encoding
+// that emitted an explicit Version INTEGER 0.
+func VerifyX509Delegation(aic *pki.AIC, principalPub crypto.PublicKey, agentSPKI []byte) error {
 	if aic == nil {
 		return fmt.Errorf("x509 bridge: nil AIC")
 	}
@@ -226,8 +234,41 @@ func VerifyX509Delegation(aic *pki.AIC, principalPub crypto.PublicKey) error {
 		return fmt.Errorf("x509 bridge: AIC delegationAuthorization is required per spec")
 	}
 
+	switch aic.Version {
+	case pki.DAVersion2:
+		if len(agentSPKI) == 0 {
+			return fmt.Errorf("x509 bridge: DA version 2 requires the agent SPKI (agentKeyBinding)")
+		}
+		return verifyX509DelegationTBS(aic, principalPub, agentSPKI, pki.DAVersion2)
+	case 0:
+		if len(agentSPKI) > 0 {
+			if err := verifyX509DelegationTBS(aic, principalPub, agentSPKI, pki.DAVersion2); err == nil {
+				return nil
+			}
+		}
+		return verifyX509DelegationTBS(aic, principalPub, agentSPKI, pki.DAVersion1)
+	case pki.DAVersion1:
+		return verifyX509DelegationTBS(aic, principalPub, agentSPKI, pki.DAVersion1)
+	default:
+		return fmt.Errorf("x509 bridge: unsupported DA version %d (must be 0, 1, or 2)", aic.Version)
+	}
+}
+
+func verifyX509DelegationTBS(aic *pki.AIC, principalPub crypto.PublicKey, agentSPKI []byte, version int) error {
+	if version != pki.DAVersion2 {
+		if err := verifyX509DelegationTBSAt(aic, principalPub, agentSPKI, pki.DAVersion1); err == nil {
+			return nil
+		}
+		return verifyX509DelegationTBSAt(aic, principalPub, agentSPKI, 0)
+	}
+	return verifyX509DelegationTBSAt(aic, principalPub, agentSPKI, pki.DAVersion2)
+}
+
+func verifyX509DelegationTBSAt(aic *pki.AIC, principalPub crypto.PublicKey, agentSPKI []byte, version int) error {
+	da := aic.DelegationAuthorization
+
 	tbs := pki.DelegationAuthTBS{
-		Version:                  aic.Version,
+		Version:                  version,
 		AgentId:                  aic.AgentId,
 		PrincipalUid:             aic.PrincipalUid,
 		Reason:                   da.Reason,
@@ -237,6 +278,13 @@ func VerifyX509Delegation(aic *pki.AIC, principalPub crypto.PublicKey) error {
 		RequestedLifetime:        da.RequestedLifetime,
 		Timestamp:                da.Timestamp,
 		Nonce:                    da.Nonce,
+	}
+	if version == pki.DAVersion2 {
+		binding, err := pki.MakeAgentKeyBinding(nil, agentSPKI)
+		if err != nil {
+			return fmt.Errorf("x509 bridge: agent key binding: %w", err)
+		}
+		tbs.AgentKeyBinding = binding
 	}
 	der, err := asn1.Marshal(tbs)
 	if err != nil {

@@ -146,14 +146,14 @@ func TestVerifyX509DelegationErrorPaths(t *testing.T) {
 	env := newTestEnv(t)
 
 	t.Run("nil aic", func(t *testing.T) {
-		err := VerifyX509Delegation(nil, &env.principalKey.PublicKey)
+		err := VerifyX509Delegation(nil, &env.principalKey.PublicKey, nil)
 		requireErrContains(t, err, "nil AIC")
 	})
 
 	t.Run("missing delegation authorization", func(t *testing.T) {
 		aic := defaultXAIC(pki.DelegationAuthorized)
 		aic.DelegationAuthorization = pki.DelegationAuthorization{}
-		err := VerifyX509Delegation(aic, &env.principalKey.PublicKey)
+		err := VerifyX509Delegation(aic, &env.principalKey.PublicKey, nil)
 		requireErrContains(t, err, "delegationAuthorization is required")
 	})
 

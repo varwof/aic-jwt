@@ -205,20 +205,105 @@ func TestVerifyX509Delegation(t *testing.T) {
 
 	// The embedded ASN.1 DA signature verifies over the reconstructed
 	// DelegationAuthTBS (the ASN.1->JSON faithfulness proof).
-	if err := VerifyX509Delegation(aic, &env.principalKey.PublicKey); err != nil {
+	if err := VerifyX509Delegation(aic, &env.principalKey.PublicKey, agentSPKI(t, env)); err != nil {
 		t.Fatalf("VerifyX509Delegation: %v", err)
 	}
 
 	// Rebuilding the TBS with a tampered agent id must break verification.
 	badAIC := *aic
 	badAIC.AgentId = "agent:attacker"
-	if err := VerifyX509Delegation(&badAIC, &env.principalKey.PublicKey); err == nil {
+	if err := VerifyX509Delegation(&badAIC, &env.principalKey.PublicKey, agentSPKI(t, env)); err == nil {
 		t.Fatal("expected signature mismatch for tampered agent_id")
 	}
 
 	// A wrong principal public key must fail.
-	if err := VerifyX509Delegation(aic, &env.agentKey.PublicKey); err == nil {
+	if err := VerifyX509Delegation(aic, &env.agentKey.PublicKey, agentSPKI(t, env)); err == nil {
 		t.Fatal("expected failure with wrong principal key")
+	}
+}
+
+func agentSPKI(t *testing.T, env *testEnv) []byte {
+	t.Helper()
+	spki, err := x509.MarshalPKIXPublicKey(env.agentKey.Public())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return spki
+}
+
+func TestVerifyX509DelegationV2(t *testing.T) {
+	env := newTestEnv(t)
+	nonce := make([]byte, 32)
+	ts := time.Now().UTC().Truncate(time.Second)
+	realm, id := "corp.com", "zhangsan"
+	uid, err := pki.MakePrincipalUidFromCertWithAlgo(realm, id, env.principalCert, pki.OIDSHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	binding, err := pki.MakeAgentKeyBinding(nil, agentSPKI(t, env))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tbs := pki.DelegationAuthTBS{
+		Version:           pki.DAVersion2,
+		AgentId:           "agent:db-analyst-01",
+		PrincipalUid:      uid,
+		Reason:            pki.Reason{ReasonCode: "DATA_ANALYSIS", Description: "scheduled analysis"},
+		Capabilities:      x509AgentCaps(),
+		DelegationMode:    pki.DelegationAuthorized,
+		RequestedLifetime: 3600,
+		Timestamp:         ts,
+		Nonce:             nonce,
+		AgentKeyBinding:   binding,
+	}
+	tbsDER, err := asn1.Marshal(tbs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(tbsDER)
+	r, s, err := ecdsa.Sign(rand.Reader, env.principalKey, digest[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	size := (env.principalKey.Curve.Params().BitSize + 7) / 8
+	sig := make([]byte, 2*size)
+	r.FillBytes(sig[:size])
+	s.FillBytes(sig[size:])
+
+	aic := pki.AIC{
+		Version:        pki.DAVersion2,
+		AgentId:        "agent:db-analyst-01",
+		PrincipalUid:   uid,
+		Capabilities:   x509AgentCaps(),
+		DelegationMode: pki.DelegationAuthorized,
+		DelegationAuthorization: pki.DelegationAuthorization{
+			Reason:             pki.Reason{ReasonCode: "DATA_ANALYSIS", Description: "scheduled analysis"},
+			RequestedLifetime:  3600,
+			Timestamp:          ts,
+			Nonce:              nonce,
+			SignatureAlgorithm: pki.AlgorithmIdentifier{Algorithm: pki.OIDSigECDSAWithSHA256},
+			SignatureValue:     sig,
+		},
+	}
+
+	// The v2 DA verifies only against the agent SPKI bound at signing time.
+	if err := VerifyX509Delegation(&aic, &env.principalKey.PublicKey, agentSPKI(t, env)); err != nil {
+		t.Fatalf("v2 VerifyX509Delegation: %v", err)
+	}
+
+	// A different (unbound) agent key must fail to redeem the v2 DA.
+	other := newTestEnv(t)
+	if err := VerifyX509Delegation(&aic, &env.principalKey.PublicKey, agentSPKI(t, other)); err == nil {
+		t.Fatal("expected failure when redeeming a v2 DA with an unbound agent key")
+	}
+
+	// Omitting the agent SPKI on a v2 DA must fail.
+	if err := VerifyX509Delegation(&aic, &env.principalKey.PublicKey, nil); err == nil {
+		t.Fatal("expected failure when v2 DA missing the agent SPKI")
+	}
+	if err := VerifyX509Delegation(&aic, &env.agentKey.PublicKey, agentSPKI(t, env)); err == nil {
+		t.Fatal("expected failure with wrong principal key on v2 DA")
 	}
 }
 
