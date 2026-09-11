@@ -2,6 +2,15 @@
 
 > ⚠️ **EXPERIMENTAL (2026-09)**: exploratory WIT/WPT interop study artifact; 探索性试验产物，非稳定接口，勿用于生产或作为规范依据。
 
+> **params 语义规范出处**：本 harness 的 params subset 语义来自 **CLC-v1 §6.2**
+> （https://github.com/varwof/capability/blob/clc-v1.1/docs/capability-language-core-v1.md ，v1.1 数组 enum 语义）。
+> 此处是实现其在 AIC-JWT / WIT 场景下的用法，C 语言核不另设参数规则。
+
+> **对齐记录（2026-09-11）**：aligned to CLC-v1 §6.2 (v1.1) — **array = allowed-set**；
+> scalar number grant keeps **bound** semantics。此前（v1.1 前）本 harness 使用
+> array-as-bound 语义（数组内数字按上界递归比较），已在 go/subset.go 与两处
+> subset.ts 同步修正（见 `clc-v1-ambiguities.md` 第 4 条）。
+
 本目录是 AIC-JWT 之外的**新增**互操作交付：把“AIC principal 签发的授权（DA/PA）作为
 issuance-control 输入”用 Go 与 TypeScript 各实现一遍同一套场景矩阵（S1..S11）。
 
@@ -45,6 +54,8 @@ cd .. && node --disable-warning=ExperimentalWarning --experimental-strip-types -
 ## subset 语义（scheme-specific 实现点）
 
 C_agent ⊆ P_grants：同 scheme + id 精确或通配匹配（`*`、`**`、`{a,b}`、`[a-z]`，
-段内匹配即可）+ params 递归子集（number：agent ≤ grant；array：元素 ∈ grant；
+段内匹配即可）+ params 递归 subset（按 **CLC-v1 §6.2 v1.1**：
+number（标量 grant 值）= 上界，agent ≤ grant；**array = 允许值集合（enum）**——
+请求标量须为成员、请求数组每个元素须为成员、数组内数字按**精确相等**；
 object：递归；其它：精确相等）。需要由 scheme 定义的部分用显式注释留出扩展点，
 不声称是 AIC-JWT 的通用算法。

@@ -31,6 +31,12 @@ jobs:
         run: node --disable-warning=ExperimentalWarning --experimental-strip-types --test ts/aicjwt.test.ts ts/x509_bridge.test.ts
       - name: Demo suite
         run: npm test
+
+      - name: WIT/WPT interop harness (Go)
+        run: cd wit-wpt-interop/go && go test -count=1 ./...
+
+      - name: WIT/WPT interop harness (TypeScript)
+        run: cd wit-wpt-interop/ts && node --disable-warning=ExperimentalWarning --experimental-strip-types --test src/*.test.ts
       - name: Third-party JWT verification
         run: |
           cd verify

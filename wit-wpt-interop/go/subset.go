@@ -4,6 +4,7 @@
 package interop
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -153,12 +154,13 @@ func validClass(class string) bool {
 	return true
 }
 
-// paramsSubset 递归 subset：
+// paramsSubset 递归 subset（CLC-v1 §6.2 v1.1 enum 语义）：
 //
-//	number：agent ≤ grant
-//	array：agent 每个元素 ⊆ grant 某元素
+//	number（标量 grant 值）：agent ≤ grant
+//	array：允许值集合（enum）——agent 标量须等于某成员；
+//	   agent 数组则每个元素须等于某成员（数字按精确相等）
 //	object：grant 每个键在 agent 中存在且递归 ⊆
-//	其它：精确相等。
+//	其它：精确相等
 func paramsSubset(agent, grant any) bool {
 	switch g := grant.(type) {
 	case nil:
@@ -173,23 +175,32 @@ func paramsSubset(agent, grant any) bool {
 		a, ok := agent.(bool)
 		return ok && a == g
 	case []any:
-		a, ok := agent.([]any)
-		if !ok {
-			return false
+		// CLC-v1 §6.2 (v1.1) enum semantics: an array-valued grant parameter
+		// is a SET of allowed values, not a list of per-element bounds.  The
+		// agent may supply a scalar (must equal a member) or an array (every
+		// element must equal a member).  Members compare by EXACT equality:
+		// a number inside the set is an exact value, not a bound.
+		// (aligned to CLC-v1 §6.2 v1.1 on 2026-09-11)
+		if len(g) == 0 {
+			return false // empty allowed set permits nothing
 		}
-		for _, ag := range a {
-			covered := false
-			for _, gr := range g {
-				if paramsSubset(ag, gr) {
-					covered = true
-					break
+		member := func(v any) bool {
+			for _, gm := range g {
+				if enumEqual(v, gm) {
+					return true
 				}
 			}
-			if !covered {
-				return false
-			}
+			return false
 		}
-		return true
+		if a, ok := agent.([]any); ok {
+			for _, e := range a {
+				if !member(e) {
+					return false
+				}
+			}
+			return true
+		}
+		return member(agent)
 	case map[string]any:
 		a, ok := agent.(map[string]any)
 		if !ok {
@@ -226,6 +237,22 @@ func number(v any) (float64, bool) {
 		return float64(n), true
 	}
 	return 0, false
+}
+
+// enumEqual 判定两个 JSON 值的精确相等（用于数组（enum）成员判定）。
+// 数字按精确值比较，不做上界放缩；对象键序由 canonical JSON 消除。
+func enumEqual(a, b any) bool {
+	ca, errA := canonicalJSON(a)
+	cb, errB := canonicalJSON(b)
+	if errA != nil || errB != nil {
+		return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
+	}
+	return string(ca) == string(cb)
+}
+
+// canonicalJSON 序列化 JSON（map 键排序，供 enumEqual 稳定比较）。
+func canonicalJSON(v any) ([]byte, error) {
+	return json.Marshal(v)
 }
 
 // capabilitySpecSubset 判定 agent 能力 ⊆ grant 能力（scheme 相等 + id 通配 + params subset）。

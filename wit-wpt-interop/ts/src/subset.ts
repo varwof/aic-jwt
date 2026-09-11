@@ -105,7 +105,35 @@ function number(v: any): number | undefined {
   return undefined;
 }
 
-/** params 递归子集：number agent≤grant；array 元素 ∈；object 递归；其它精确相等。 */
+/** deepEqual 按 JSON 值做深层精确相等（用于数组（enum）成员判定；数字精确比较）。 */
+function deepEqual(a: any, b: any): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (typeof a !== typeof b) {
+    return false;
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) {
+      return false;
+    }
+    return a.every((x, i) => deepEqual(x, b[i]));
+  }
+  if (a !== null && b !== null && typeof a === "object" && typeof b === "object") {
+    const ka = Object.keys(a).sort();
+    const kb = Object.keys(b).sort();
+    if (ka.length !== kb.length) {
+      return false;
+    }
+    return ka.every((k, i) => k === kb[i] && deepEqual(a[k], b[k]));
+  }
+  return false;
+}
+
+/** params 递归 subset（CLC-v1 §6.2 v1.1 enum 语义）：
+ *  number（标量 grant 值）：agent ≤ grant；
+ *  array：允许值集合（enum）——agent 标量须等于某成员，agent 数组则每个元素须等于某成员（数字按精确相等）；
+ *  object 递归；其它精确相等。 */
 export function paramsSubset(agent: any, grant: any): boolean {
   if (grant === null || grant === undefined) {
     return true;
@@ -121,12 +149,17 @@ export function paramsSubset(agent: any, grant: any): boolean {
     return agent === grant;
   }
   if (Array.isArray(grant)) {
-    if (!Array.isArray(agent)) {
+    // enum 语义：grant 数组 = 允许值集合。空集合不允许任何值。
+    //（aligned to CLC-v1 §6.2 v1.1 on 2026-09-11）
+    if (grant.length === 0) {
       return false;
     }
-    return (agent as any[]).every((ag) =>
-      (grant as any[]).some((gr) => paramsSubset(ag, gr)),
-    );
+    const member = (v: any): boolean =>
+      (grant as any[]).some((gm) => deepEqual(v, gm));
+    if (Array.isArray(agent)) {
+      return (agent as any[]).every((e) => member(e));
+    }
+    return member(agent);
   }
   if (typeof grant === "object") {
     if (typeof agent !== "object" || agent === null || Array.isArray(agent)) {
