@@ -1,5 +1,8 @@
 # AIC-JWT
 
+> ⭐ Like this repo? Give a star to the flagship one:
+> [![GitHub stars](https://img.shields.io/github/stars/varwof/core?style=social&label=varwof/core)](https://github.com/varwof/core)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![IETF Internet-Draft](https://img.shields.io/badge/IETF-draft--wei--aic--jwt-blue)](https://datatracker.ietf.org/doc/draft-wei-aic-jwt/)
 
