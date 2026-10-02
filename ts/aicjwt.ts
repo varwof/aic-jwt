@@ -73,6 +73,23 @@ export interface OuterClaims {
   act?: { sub: string };
 }
 
+/** da.ver=3 binding of the delegation authorization to the Agent's
+ * public key (draft -02 Section 5.2): key_hash is the unpadded base64url
+ * encoding of hash_alg(SPKI DER). */
+export interface AgentKeyBinding {
+  hash_alg: string;
+  key_hash: string;
+}
+
+// SPKI_HASH_SIZES maps the hash_alg values implemented here to their
+// output length in bytes; an unknown algorithm is rejected with no
+// silent fallback.
+const SPKI_HASH_SIZES: Record<string, number> = {
+  "sha-256": 32,
+  "sha-384": 48,
+  "sha-512": 64,
+};
+
 export interface DAClaims {
   ver: number;
   iss: string;
@@ -90,6 +107,7 @@ export interface DAClaims {
   requested_lifetime: number;
   ts: number;
   nonce: string;
+  agent_key_binding?: AgentKeyBinding;
 }
 
 export interface DelegationPolicy {
@@ -767,8 +785,37 @@ function checkOuterRequired(o: OuterClaims): void {
   }
 }
 
+// checkAgentKeyBinding validates the da.ver=3 agent_key_binding object
+// (draft -02 Section 5.2).
+function checkAgentKeyBinding(b: AgentKeyBinding): void {
+  if (!b.hash_alg) throw new Error("DA agent_key_binding.hash_alg required");
+  const size = SPKI_HASH_SIZES[b.hash_alg];
+  if (!size) throw new Error(`DA agent_key_binding.hash_alg ${b.hash_alg} unsupported`);
+  if (!b.key_hash) throw new Error("DA agent_key_binding.key_hash required");
+  let raw: Uint8Array;
+  try {
+    raw = b64uDecode(b.key_hash);
+  } catch {
+    throw new Error("DA agent_key_binding.key_hash is not base64url");
+  }
+  if (raw.length !== size) {
+    throw new Error(`DA agent_key_binding.key_hash length ${raw.length} does not match ${b.hash_alg} output length ${size}`);
+  }
+}
+
 function checkDARequired(d: DAClaims): void {
-  if (d.ver !== 2) throw new Error("DA ver must be 2");
+  switch (d.ver) {
+    case 2:
+      // Legacy claim set: the JWT counterpart of X.509 AIC DA v1.
+      if (d.agent_key_binding) throw new Error("DA ver must be 3 to carry agent_key_binding");
+      break;
+    case 3:
+      if (!d.agent_key_binding) throw new Error("DA ver=3 requires agent_key_binding");
+      checkAgentKeyBinding(d.agent_key_binding);
+      break;
+    default:
+      throw new Error(`DA ver must be 3 (current) or 2 (legacy), got ${d.ver}`);
+  }
   if (!d.iss || d.iss.length > 256) throw new Error("DA iss required, 1..256 chars");
   if (!d.sub || d.sub.length > 256) throw new Error("DA sub required, 1..256 chars");
   if (!d.aud || d.aud.length < 1) throw new Error("DA aud required");
@@ -913,6 +960,13 @@ export async function validate(token: string, opts: VerifyOptions): Promise<Deci
     if (outer.exp - outer.iat > da.requested_lifetime) throw new Error("step4: token lifetime exceeds DA requested_lifetime");
     if (outer.exp > da.exp) throw new Error("step4: outer exp exceeds DA exp");
     if (!audienceList(da.aud).includes(outer.iss)) throw new Error("step4: DA aud does not include outer iss");
+    // da.ver=3: the binding is covered by the principal signature, so the
+    // key identified by cnf must match it.  The presenter/cnf check below
+    // anchors cnf to opts.presenterKey.
+    if (da.ver === 3 && da.agent_key_binding && opts.presenterKey) {
+      const h = await keyHashOf(opts.presenterKey, da.agent_key_binding.hash_alg);
+      if (h !== da.agent_key_binding.key_hash) throw new Error("step4: DA agent_key_binding does not match the presenter key");
+    }
   } else if (outer.aic.delegation_mode === MODE_REPRESENTATIVE) {
     throw new Error("step4: representative mode requires a DA JWT");
   } else if (outer.exp - outer.iat > MAX_LIFETIME) {

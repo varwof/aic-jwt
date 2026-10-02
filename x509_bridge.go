@@ -34,6 +34,17 @@ type X509BridgeOptions struct {
 	// lifetime when positive; a zero value keeps the value embedded in
 	// the certificate's DelegationAuthorization.
 	DARequestedLifetime int
+
+	// DAVersion is the version of the DelegationAuthTBS being mapped
+	// (pki.DAVersion1 or pki.DAVersion2).  X.509 DA v1 maps to da.ver=2
+	// (legacy, no binding) and X.509 DA v2 maps to da.ver=3 with an
+	// agent_key_binding (draft Section 5.4).  A zero value keeps the
+	// legacy v1 mapping for callers that do not have the TBS.
+	DAVersion int
+
+	// AgentKeyBinding is the DA v2 binding taken from the
+	// DelegationAuthTBS; required when DAVersion is pki.DAVersion2.
+	AgentKeyBinding *pki.AgentKeyBinding
 }
 
 // MapX509ToClaims maps an X.509 AIC extension onto the equivalent
@@ -161,8 +172,31 @@ func mapDA(aic *pki.AIC, principal Principal, mode string,
 		return nil, fmt.Errorf("x509 bridge: DA requested_lifetime must be >= 1")
 	}
 
+	ver := opts.DAVersion
+	if ver == 0 {
+		ver = pki.DAVersion1
+	}
+	daVer := 0
+	var binding *AgentKeyBinding
+	switch ver {
+	case pki.DAVersion1:
+		daVer = 2
+	case pki.DAVersion2:
+		if opts.AgentKeyBinding == nil || opts.AgentKeyBinding.IsZero() {
+			return nil, fmt.Errorf("x509 bridge: DA version 2 requires an agentKeyBinding")
+		}
+		name := asn1HashName(opts.AgentKeyBinding.HashAlgoOID())
+		if name == "" {
+			return nil, fmt.Errorf("x509 bridge: unsupported agentKeyBinding hash algo %v", opts.AgentKeyBinding.HashAlgoOID())
+		}
+		daVer = 3
+		binding = &AgentKeyBinding{HashAlg: name, KeyHash: b64uEncode(opts.AgentKeyBinding.KeyHash)}
+	default:
+		return nil, fmt.Errorf("x509 bridge: unsupported DA version %d", ver)
+	}
+
 	d := &DAClaims{
-		Ver:               2,
+		Ver:               daVer,
 		Aud:               Audience{opts.DAAudience},
 		AgentID:           aic.AgentId,
 		Principal:         principal,
@@ -173,6 +207,7 @@ func mapDA(aic *pki.AIC, principal Principal, mode string,
 		RequestedLifetime: requested,
 		TS:                ts.Unix(),
 		Nonce:             b64uEncode(da.Nonce),
+		AgentKeyBinding:   binding,
 	}
 	d.Exp = ts.Unix() + int64(requested)
 	d.Iat = ts.Unix()

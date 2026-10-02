@@ -602,3 +602,70 @@ test("TS: oversized capability params rejected", async () => {
   const tok = await buildOuter(env, daTok, da, MODE_AUTHORIZED, badCaps);
   await assert.rejects(() => validate(tok, opts), /params exceed/);
 });
+
+// ---- da.ver=3: agent_key_binding (draft -02 Section 5.2) ------------------
+
+test("da ver=3 requires agent_key_binding", async () => {
+  const env = await newEnv();
+  const { token } = await buildDA(env, MODE_AUTHORIZED, CAPS, (d) => { d.ver = 3; });
+  await assert.rejects(() => validateDA(token, defaultOpts(env)), /agent_key_binding/);
+});
+
+test("da ver=2 must not carry agent_key_binding", async () => {
+  const env = await newEnv();
+  const { token } = await buildDA(env, MODE_AUTHORIZED, CAPS, (d) => {
+    d.agent_key_binding = { hash_alg: "sha-256", key_hash: "AAAA" };
+  });
+  await assert.rejects(() => validateDA(token, defaultOpts(env)), /must be 3 to carry/);
+});
+
+test("da ver=3 rejects unsupported hash_alg and wrong key_hash length", async () => {
+  const env = await newEnv();
+  const bad = await buildDA(env, MODE_AUTHORIZED, CAPS, (d) => {
+    d.ver = 3;
+    d.agent_key_binding = { hash_alg: "sm3", key_hash: b64uEncode(new Uint8Array(32)) };
+  });
+  await assert.rejects(() => validateDA(bad.token, defaultOpts(env)), /unsupported/);
+
+  const short = await buildDA(env, MODE_AUTHORIZED, CAPS, (d) => {
+    d.ver = 3;
+    d.agent_key_binding = { hash_alg: "sha-256", key_hash: b64uEncode(new Uint8Array(16)) };
+  });
+  await assert.rejects(() => validateDA(short.token, defaultOpts(env)), /length/);
+});
+
+test("da ver=1 and unknown versions are rejected", async () => {
+  const env = await newEnv();
+  const v1 = await buildDA(env, MODE_AUTHORIZED, CAPS, (d) => { d.ver = 1; });
+  await assert.rejects(() => validateDA(v1.token, defaultOpts(env)), /DA ver/);
+
+  const v4 = await buildDA(env, MODE_AUTHORIZED, CAPS, (d) => {
+    d.ver = 4;
+    d.agent_key_binding = { hash_alg: "sha-256", key_hash: b64uEncode(new Uint8Array(32)) };
+  });
+  await assert.rejects(() => validateDA(v4.token, defaultOpts(env)), /DA ver/);
+});
+
+test("pipeline: da ver=3 binding must match the presenter key", async () => {
+  const env = await newEnv();
+  const binding = await keyHashOf(env.agent.publicKey, "sha-256");
+  const ok = await buildDA(env, MODE_AUTHORIZED, CAPS, (d) => {
+    d.ver = 3;
+    d.agent_key_binding = { hash_alg: "sha-256", key_hash: binding };
+  });
+  const okTok = await buildOuter(env, ok.token, ok.da, MODE_AUTHORIZED, CAPS);
+  const dec = await check(env, okTok, CAPS[0], { presenterKey: env.agent.publicKey });
+  assert.equal(dec.permit, true);
+
+  const other = await genECDSA();
+  const otherHash = await keyHashOf(other.publicKey, "sha-256");
+  const bad = await buildDA(env, MODE_AUTHORIZED, CAPS, (d) => {
+    d.ver = 3;
+    d.agent_key_binding = { hash_alg: "sha-256", key_hash: otherHash };
+  });
+  const badTok = await buildOuter(env, bad.token, bad.da, MODE_AUTHORIZED, CAPS);
+  await assert.rejects(
+    () => check(env, badTok, CAPS[0], { presenterKey: env.agent.publicKey }),
+    /does not match the presenter key/,
+  );
+});

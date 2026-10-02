@@ -51,6 +51,10 @@ type (
 
 // ---- constants -------------------------------------------------------
 
+// AgentKeyBinding is the da.ver=3 binding of a delegation authorization
+// to the Agent's public key (draft -02 Section 5.2).
+type AgentKeyBinding = aj.AgentKeyBinding
+
 const (
 	TypOuter                  = aj.TypOuter
 	TypDA                     = aj.TypDA
