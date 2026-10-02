@@ -10,7 +10,7 @@
 > (PRs) — see [CONTRIBUTING](https://github.com/varwof/.github).
 
 Reference implementation and conformance suite for AIC-JWT
-(`draft-wei-aic-jwt-01`): the JSON Web Token profile of the AI Agent
+(`draft-wei-aic-jwt-02`): the JSON Web Token profile of the AI Agent
 Identity Certificate (AIC). It translates the specification's
 requirements into executable tests and verifies end-to-end behavior
 against real OAuth scenarios (RFC 9068 / 7523 / 8693 / 9449, OBO,
@@ -26,6 +26,8 @@ JWT over HTTP.**
   browsers; directly testable in Node).
 - X.509 ↔ JWT bridge (draft §5.4 / Mode B): `x509_bridge.go` (Go) and
   `ts/x509_bridge.ts` map an X.509 AIC extension onto AIC-JWT claims.
+  X.509 DA v1 maps to `da.ver=2`, X.509 DA v2 maps to `da.ver=3` with an
+  `agent_key_binding`.
 - JWT-carrier path: `jwt_carrier_test.go` and `IssueFromDAShort`
   exercise short-lived, no-refresh issuance on the JWT carrier.
 - Serverless browser demo: [`demo/`](demo/README.md) — human JWT
@@ -48,10 +50,10 @@ npm run build && open demo/dist/index.html      # browser demo
 
 ## Drafts
 
-- AIC-JWT: [draft-wei-aic-jwt-01.md](docs/draft-wei-aic-jwt-01.md) (also `.xml` / `.txt` / `.html`) — RFC 7523 DA claims (DA ver=2), per-mode role placement, token exchange mapping (§10.4). Current revision on the Datatracker: <https://datatracker.ietf.org/doc/draft-wei-aic-jwt/>
-- AIC X.509 companion: [draft-wei-aic-identity-cert-01.md](docs/draft-wei-aic-identity-cert-01.md) (also `.xml` / `.txt` / `.html`) — read online: [Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
+- AIC-JWT: [draft-wei-aic-jwt-02.md](docs/draft-wei-aic-jwt-02.md) (also `.xml` / `.txt` / `.html`) — DA claim set ver=3 with `agent_key_binding` (ver=2 is the legacy claim set), RFC 7523 DA claims, per-mode role placement, token exchange mapping (§10.4), and the WIT/WPT boundary. Read online: <https://datatracker.ietf.org/doc/draft-wei-aic-jwt/>
+- AIC X.509 companion: [draft-wei-aic-identity-cert-02.md](docs/draft-wei-aic-identity-cert-02.md) (also `.xml` / `.txt` / `.html`) — X.509 AIC DA v2 with `AgentKeyBinding`. Read online: [Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
 
-Repository copies of draft text are snapshots (pinned to types v0.6.0);
+Repository copies of draft text are snapshots (pinned to types v0.7.0);
 the authoritative text is the version posted on the Datatracker.
 
 ## How it works
@@ -60,7 +62,8 @@ AIC-JWT is the JWT carrier of the same authorization data model as the
 X.509 AIC extension:
 
 - **Two-layer signature.** A principal signs a Delegation
-  Authorization (DA) JWT (ver=2) that bounds the agent's capabilities;
+  Authorization (DA) JWT (ver=3, carrying `agent_key_binding`; ver=2 is the
+  legacy claim set) that bounds the agent's capabilities;
   an issuer (CA or AS) validates the DA and signs the outer AIC-JWT.
 - **Roles per mode.** Authorized: agent is `sub` (RFC 7523 Section 3,
   item 2A). Representative: resource owner/principal is `sub`, agent
@@ -81,7 +84,7 @@ X.509 AIC extension:
 go test -race ./...             # all Go tests incl. race (OAuth scenarios)
 go vet ./...                    # vet
 npm run typecheck               # tsc --noEmit
-node --test ts/aicjwt.test.ts ts/x509_bridge.test.ts   # TS/WebCrypto unit suites, 24 cases (Node 22+)
+node --test ts/aicjwt.test.ts ts/x509_bridge.test.ts   # TS/WebCrypto unit suites, 29 cases (Node 22+)
 npm test                        # demo library tests (Node 22+)
 cd verify && npm install        # third-party JWT verification deps
 cd verify && npm run gen && npm run verify:jose && npm run verify:jwt
@@ -103,7 +106,25 @@ open demo/dist/index.html       # serverless browser demo, English default (inde
 | `ts/asn1.ts`, `ts/x509_bridge.ts` | TS X.509 ASN.1 + X.509→JWT bridge |
 | `demo/` | Serverless browser demo (TS library + UI, builds to a self-contained HTML) |
 | `verify/` | Third-party JWT verification (jose, jsonwebtoken) against generated fixtures |
-| `docs/draft-wei-aic-jwt-01.md` | Copy of the prepared -01 revision |
+| `docs/draft-wei-aic-jwt-02.md` | Copy of the -02 revision (types v0.7.0, aic-jwt v0.3.0) |
+| `docs/draft-wei-aic-identity-cert-02.md` | Copy of the published X.509 AIC -02 revision |
+
+## Changes and verification (2026-10-02)
+
+- **DA claim set ver=3.** The DA JWT now carries `agent_key_binding`
+  (`hash_alg` + `key_hash` = base64url(`hash_alg(SPKI DER)`)), covered by
+  the principal signature and cross-checked against the key identified by
+  `cnf`.  `da.ver=2` remains the legacy claim set (the JWT counterpart of
+  X.509 DA v1) and must not carry the binding; other version values are
+  rejected.
+- **X.509 <-> JWT bridge.** `MapX509ToClaims` maps X.509 DA v1 to
+  `da.ver=2` and X.509 DA v2 to `da.ver=3`, carrying the DA v2
+  `AgentKeyBinding` across as `agent_key_binding`
+  (`X509BridgeOptions.DAVersion` / `.AgentKeyBinding`).
+- **TypeScript/WebCrypto.** The TS implementation applies the same version
+  matrix, binding format and length checks, and presenter cross-check; the
+  TS unit suites now cover 29 cases.
+- **Dependency**: `github.com/varwof/types` v0.7.0.
 
 ## Changes and verification (2026-09-06)
 

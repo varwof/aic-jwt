@@ -7,7 +7,7 @@
 > AIC 草案为 Experimental 状态。欢迎提交 PR 参与贡献（见
 > [CONTRIBUTING](https://github.com/varwof/.github)）。
 
-AIC-JWT（`draft-wei-aic-jwt-01`）的参考实现与验证程序：把草案的规范要求翻译成
+AIC-JWT（`draft-wei-aic-jwt-02`）的参考实现与验证程序：把草案的规范要求翻译成
 可执行的测试，并用真实 OAuth 场景（RFC 9068 / 7523 / 8693 / 9449、OBO、
 Token Status List）验证端到端行为。
 
@@ -15,7 +15,8 @@ Token Status List）验证端到端行为。
   `github.com/varwof/types/aicjwt`（单一实现源）。
 - TypeScript/WebCrypto 实现：`ts/`（纯 WebCrypto，浏览器可运行，Node 可直接测试）。
 - X.509 ↔ JWT 桥（草案 §5.4 / Mode B）：`x509_bridge.go`（Go）与
-  `ts/x509_bridge.ts` 把 X.509 AIC 扩展映射为 AIC-JWT claims。
+  `ts/x509_bridge.ts` 把 X.509 AIC 扩展映射为 AIC-JWT claims；
+  X.509 DA v1 映射为 `da.ver=2`，X.509 DA v2 映射为 `da.ver=3`（带 `agent_key_binding`）。
 - JWT-carrier 路径：`jwt_carrier_test.go` 与 `IssueFromDAShort` 验证
   JWT 载体上的短生命周期、无刷新签发。
 - 无服务器浏览器演示：[`demo/`](demo/README.md)——人类 JWT 证书 → 代理证书 → 验证，
@@ -39,17 +40,17 @@ npm run build && open demo/dist/index.html      # 浏览器演示
 
 ## 草案
 
-- AIC-JWT：[draft-wei-aic-jwt-01.md](docs/draft-wei-aic-jwt-01.md)（另有 `.xml` / `.txt` / `.html`）——RFC 7523 DA claim（DA ver=2）、按模式角色、token exchange 映射（§10.4）。datatracker 上当前为 -01：<https://datatracker.ietf.org/doc/draft-wei-aic-jwt/>
-- AIC X.509 配套：[draft-wei-aic-identity-cert-01.md](docs/draft-wei-aic-identity-cert-01.md)（另有 `.xml` / `.txt` / `.html`）——在线阅读：[Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
+- AIC-JWT：[draft-wei-aic-jwt-02.md](docs/draft-wei-aic-jwt-02.md)（另有 `.xml` / `.txt` / `.html`）——DA claim set ver=3（带 `agent_key_binding`，ver=2 为 legacy）、RFC 7523 DA claim、按模式角色、token exchange 映射（§10.4）、WIT/WPT 边界。在线阅读：<https://datatracker.ietf.org/doc/draft-wei-aic-jwt/>
+- AIC X.509 配套：[draft-wei-aic-identity-cert-02.md](docs/draft-wei-aic-identity-cert-02.md)（另有 `.xml` / `.txt` / `.html`）——X.509 AIC DA v2（带 `AgentKeyBinding`）。在线阅读：[Datatracker](https://datatracker.ietf.org/doc/draft-wei-aic-identity-cert/)
 
-仓库内的草案副本为快照（对应 types v0.6.0）；权威文本以 datatracker
+仓库内的草案副本为快照（对应 types v0.7.0）；权威文本以 datatracker
 发布版本为准。
 
 ## 工作原理
 
 AIC-JWT 是 X.509 AIC 同一授权数据模型的 JWT 载体：
 
-- **双层签名**：principal 签署 DA JWT（ver=2）限定代理能力；签发方（CA 或 AS）
+- **双层签名**：principal 签署 DA JWT（ver=3，携带 `agent_key_binding`；ver=2 为 legacy）限定代理能力；签发方（CA 或 AS）
   验证 DA 后签署外层 AIC-JWT。
 - **按模式角色**：authorized 下 agent 为 `sub`（RFC 7523 §3 item 2A）；
   representative 下资源所有者/principal 为 `sub`、agent 为 `act`；
@@ -66,7 +67,7 @@ AIC-JWT 是 X.509 AIC 同一授权数据模型的 JWT 载体：
 go test -race ./...             # Go 全部测试（含 race、OAuth 场景）
 go vet ./...                    # vet
 npm run typecheck               # tsc --noEmit
-node --test ts/aicjwt.test.ts ts/x509_bridge.test.ts   # TS/WebCrypto 单元 24 用例（Node 22+）
+node --test ts/aicjwt.test.ts ts/x509_bridge.test.ts   # TS/WebCrypto 单元 29 用例（Node 22+）
 npm test                        # demo 库测试（Node 22+）
 cd verify && npm install        # 第三方 JWT 验证依赖
 cd verify && npm run gen && npm run verify:jose && npm run verify:jwt
@@ -88,7 +89,21 @@ open demo/dist/index.html       # 无服务器浏览器演示，默认英文（�
 | `ts/asn1.ts`、`ts/x509_bridge.ts` | TS ASN.1 解析 + X.509→JWT 桥 |
 | `demo/` | 无服务器浏览器演示（TS 库 + UI，构建为自包含 HTML） |
 | `verify/` | 第三方 JWT 验证（jose、jsonwebtoken）针对生成 fixture |
-| `docs/draft-wei-aic-jwt-01.md` | 已备好的 -01 修订副本 |
+| `docs/draft-wei-aic-jwt-02.md` | -02 修订副本（types v0.7.0、aic-jwt v0.3.0） |
+| `docs/draft-wei-aic-identity-cert-02.md` | 已发布的 X.509 AIC -02 副本 |
+
+## 变更与验证（2026-10-02）
+
+- **DA claim set 升到 ver=3**：DA JWT 现携带 `agent_key_binding`
+  （`hash_alg` + `key_hash` = base64url(`hash_alg(SPKI DER)`），由 principal 签名覆盖，
+  并与 `cnf` 指名的密钥交叉校验。`da.ver=2` 为 legacy claim set（对应 X.509 DA v1），
+  不得携带该 binding；其它版本值一律拒绝。
+- **X.509 <-> JWT 桥**：`MapX509ToClaims` 把 X.509 DA v1 映射为 `da.ver=2`、
+  X.509 DA v2 映射为 `da.ver=3`，并把 DA v2 的 `AgentKeyBinding` 带成
+  `agent_key_binding`（`X509BridgeOptions.DAVersion` / `.AgentKeyBinding`）。
+- **TypeScript/WebCrypto**：TS 实现采用同一套版本矩阵、binding 格式/长度校验与
+  出示者交叉校验；TS 单元用例现为 29 个。
+- **依赖**：`github.com/varwof/types` v0.7.0。
 
 ## 变更与验证（2026-09-06）
 
