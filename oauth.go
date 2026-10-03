@@ -140,6 +140,24 @@ func (is *Issuer) IssueFromDA(daToken string, agentPub crypto.PublicKey, aud []s
 	if !da.Aud.Contains(is.ID) {
 		return "", nil, fmt.Errorf("token endpoint: DA aud %v does not include this AS %q", da.Aud, is.ID)
 	}
+	// da.ver=3: the AS MUST verify that the key identified by cnf matches
+	// agent_key_binding before signing (draft Section 10.2).  The cnf this
+	// function writes is KeyHashOf(agentPub, "jkt"), so agentPub is the key
+	// the token will name: check it against the principal-signed binding
+	// instead of letting the caller point cnf at an unbound key.  ver=2
+	// carries no binding and stays on the legacy substitution mitigations.
+	if da.Ver == 3 {
+		if da.AgentKeyBinding == nil {
+			return "", nil, fmt.Errorf("token endpoint: DA ver=3 agent_key_binding is required")
+		}
+		binding, err := KeyHashOf(agentPub, da.AgentKeyBinding.HashAlg)
+		if err != nil {
+			return "", nil, fmt.Errorf("token endpoint: agent_key_binding: %w", err)
+		}
+		if binding != da.AgentKeyBinding.KeyHash {
+			return "", nil, fmt.Errorf("token endpoint: agent_key_binding does not match the agent key")
+		}
+	}
 	agentThumb, err := KeyHashOf(agentPub, "jkt")
 	if err != nil {
 		return "", nil, err

@@ -1,4 +1,2 @@
-github.com/varwof/types v0.6.0 h1:88xdcReaEfP/LAh4kNjhUYP824tqhI6UFLXeBk69oR8=
-github.com/varwof/types v0.6.0/go.mod h1:kMpDf3NfwRGSd7OKAH6m6U41A78ITv4RwniSs+1U3Zs=
-github.com/varwof/types v0.7.0 h1:bSveb02iOb/dzxDgGyDVbuc45PBCSueZciY3oMz34cA=
-github.com/varwof/types v0.7.0/go.mod h1:kMpDf3NfwRGSd7OKAH6m6U41A78ITv4RwniSs+1U3Zs=
+github.com/varwof/types v0.7.1 h1:hXC46JfkiEpbnai/4QxH9OqZAw6OJ25WEXbHZXTjppo=
+github.com/varwof/types v0.7.1/go.mod h1:kMpDf3NfwRGSd7OKAH6m6U41A78ITv4RwniSs+1U3Zs=
